@@ -1,11 +1,12 @@
 import {
-  collection,
-  addDoc,
-  getDocs,
-  query,
-  where,
-  deleteDoc,
-  doc,
+collection,
+addDoc,
+getDocs,
+query,
+where,
+deleteDoc,
+doc,
+updateDoc,
 } from "firebase/firestore";
 
 import { db } from "@/src/lib/firebase";
@@ -54,3 +55,19 @@ export const deleteDeadline = async (
     doc(db, "deadlines", id)
   );
 };
+export const updateDeadline = async (
+id: string,
+title: string,
+dueDate: string,
+priority: string
+) => {
+await updateDoc(
+doc(db, "deadlines", id),
+{
+title,
+dueDate,
+priority,
+}
+);
+};
+

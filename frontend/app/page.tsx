@@ -9,9 +9,10 @@ import {
   logout,
 } from "../src/services/auth";
 import {
-  addDeadline,
-  getDeadlines,
-  deleteDeadline,
+addDeadline,
+getDeadlines,
+deleteDeadline,
+updateDeadline,
 } from "../src/services/deadlines";
 
 export default function Home() {
@@ -27,6 +28,9 @@ export default function Home() {
 useState("All");
 
 const [deadlines, setDeadlines] = useState<any[]>([]);
+const [editingId, setEditingId] =
+useState<string | null>(null);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(
       auth,
@@ -71,12 +75,23 @@ const [deadlines, setDeadlines] = useState<any[]>([]);
   const handleAddDeadline = async () => {
     if (!title || !dueDate || !user) return;
 
-    await addDeadline(
-      title,
-      dueDate,
-      user.uid,
-      priority
-    );
+if (editingId) {
+await updateDeadline(
+editingId,
+title,
+dueDate,
+priority
+);
+
+setEditingId(null);
+} else {
+await addDeadline(
+title,
+dueDate,
+user.uid,
+priority
+);
+}
 
     const updated = await getDeadlines(
       user.uid
@@ -87,6 +102,8 @@ const [deadlines, setDeadlines] = useState<any[]>([]);
     setTitle("");
     setDueDate("");
     setPriority("Medium");
+setEditingId(null);
+
   };
 
   const handleDelete = async (
@@ -217,12 +234,16 @@ const handleLogout = async () => {
               <option>Low</option>
             </select>
 
-            <button
-              onClick={handleAddDeadline}
-              className="bg-green-600 text-white px-4 py-2 rounded"
-            >
-              Save Deadline
-            </button>
+<button
+onClick={handleAddDeadline}
+className="bg-green-600 text-white px-4 py-2 rounded"
+
+>
+
+{editingId
+? "Update Deadline"
+: "Save Deadline"} </button>
+
           </div>
 
           <div>
@@ -348,14 +369,36 @@ new Date(b.dueDate).getTime()
   })()}
 </p>
 
-                  <button
-                    onClick={() =>
-                      handleDelete(deadline.id)
-                    }
-                    className="mt-2 bg-red-600 text-white px-3 py-1 rounded"
-                  >
-                    Delete
-                  </button>
+<div className="mt-2 flex gap-2">
+
+<button
+  onClick={() => {
+    setEditingId(deadline.id);
+
+    setTitle(deadline.title);
+    setDueDate(deadline.dueDate);
+    setPriority(deadline.priority);
+  }}
+  className="bg-blue-600 text-white px-3 py-1 rounded"
+>
+  Edit
+</button>
+<button
+onClick={() =>
+handleDelete(deadline.id)
+}
+className="bg-red-600 text-white px-3 py-1 rounded"
+
+>
+
+
+Delete
+
+
+  </button>
+
+</div>
+
                 </div>
               ))
             )}
