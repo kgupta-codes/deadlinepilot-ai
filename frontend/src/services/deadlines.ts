@@ -1,4 +1,13 @@
-import { collection, addDoc, getDocs } from "firebase/firestore";
+import {
+  collection,
+  addDoc,
+  getDocs,
+  query,
+  where,
+  deleteDoc,
+  doc,
+} from "firebase/firestore";
+
 import { db } from "@/src/lib/firebase";
 
 export const addDeadline = async (
@@ -12,14 +21,36 @@ export const addDeadline = async (
     dueDate,
     userId,
     priority,
+    createdAt: new Date(),
   });
 };
 
-export const getDeadlines = async () => {
-  const snapshot = await getDocs(collection(db, "deadlines"));
+export const getDeadlines = async (
+  userId: string
+) => {
+  const q = query(
+    collection(db, "deadlines"),
+    where("userId", "==", userId)
+  );
 
-  return snapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  }));
+const snapshot = await getDocs(q);
+
+const deadlines = snapshot.docs.map((doc) => ({
+  id: doc.id,
+  ...doc.data(),
+}));
+
+return deadlines.sort(
+  (a: any, b: any) =>
+    new Date(a.dueDate).getTime() -
+    new Date(b.dueDate).getTime()
+);
+};
+
+export const deleteDeadline = async (
+  id: string
+) => {
+  await deleteDoc(
+    doc(db, "deadlines", id)
+  );
 };
