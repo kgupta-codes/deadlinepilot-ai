@@ -131,6 +131,16 @@ const handleLogout = async () => {
   setDeadlines([]);
 };
 
+const completedCount = deadlines.filter(
+  (d) => d.status === "Completed"
+).length;
+
+const progress =
+  deadlines.length === 0
+    ? 0
+    : Math.round(
+        (completedCount / deadlines.length) * 100
+      );
   return (
     <main className="min-h-screen flex flex-col items-center p-8">
       <h1 className="text-4xl font-bold mb-6">
@@ -168,8 +178,7 @@ const handleLogout = async () => {
   Logout
 </button>
           </div>
-<div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
-
+<div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4 mb-6">
   <div className="border border-gray-700 p-4 rounded-xl text-center bg-zinc-900">
     <h2 className="text-3xl font-bold">
       {deadlines.length}
@@ -235,7 +244,39 @@ const handleLogout = async () => {
       In Progress
     </p>
   </div>
+<div className="border border-gray-700 p-4 rounded-xl text-center bg-zinc-900">
+  <h2 className="text-3xl font-bold text-red-500">
+    {
+      deadlines.filter(
+        (d) =>
+          new Date(d.dueDate).getTime() <
+          Date.now()
+      ).length
+    }
+  </h2>
 
+  <p className="text-gray-400">
+    Overdue
+  </p>
+</div>
+<div className="border border-gray-700 p-4 rounded-xl text-center bg-zinc-900">
+  <h2 className="text-3xl font-bold text-purple-400">
+    {progress}%
+  </h2>
+
+  <p className="text-gray-400">
+    Progress
+  </p>
+
+  <div className="w-full bg-zinc-800 rounded-full h-2 mt-3">
+    <div
+      className="bg-purple-500 h-2 rounded-full"
+      style={{
+        width: `${progress}%`,
+      }}
+    />
+  </div>
+</div>
 </div>
     <div className="border p-4 rounded-lg mb-6">
             <h3 className="text-xl font-semibold mb-4">
@@ -296,6 +337,20 @@ className="bg-green-600 text-white px-4 py-2 rounded"
 {editingId
 ? "Update Deadline"
 : "Save Deadline"} </button>
+{editingId && (
+  <button
+    onClick={() => {
+      setEditingId(null);
+      setTitle("");
+      setDueDate("");
+      setPriority("Medium");
+      setStatus("Not Started");
+    }}
+    className="ml-2 bg-gray-600 text-white px-4 py-2 rounded"
+  >
+    Cancel
+  </button>
+)}
 
           </div>
 
@@ -344,10 +399,21 @@ className="border p-2 w-full mb-4 text-black rounded"
 
 >
 
-  <option>All</option>
-  <option>High</option>
-  <option>Medium</option>
-  <option>Low</option>
+<option value="All">
+  All Priority
+</option>
+
+<option value="High">
+  🔴 High
+</option>
+
+<option value="Medium">
+  🟡 Medium
+</option>
+
+<option value="Low">
+  🟢 Low
+</option>
 </select>
 
 
