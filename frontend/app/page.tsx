@@ -328,7 +328,7 @@ const progress =
               onChange={(e) =>
                 setTitle(e.target.value)
               }
-              className="border p-2 w-full mb-3 text-black"
+className="border border-gray-700 bg-zinc-900 text-white p-2 w-full mb-3 rounded"
             />
 
             <input
@@ -337,7 +337,7 @@ const progress =
               onChange={(e) =>
                 setDueDate(e.target.value)
               }
-              className="border p-2 w-full mb-3 text-black"
+className="border border-gray-700 bg-zinc-900 text-white p-2 w-full mb-3 rounded"
             />
 
             <select
@@ -345,7 +345,7 @@ const progress =
               onChange={(e) =>
                 setPriority(e.target.value)
               }
-              className="border p-2 w-full mb-3 text-black"
+className="border border-gray-700 bg-zinc-900 text-white p-2 w-full mb-3 rounded"
             >
               <option>High</option>
               <option>Medium</option>
@@ -356,7 +356,7 @@ value={status}
 onChange={(e) =>
 setStatus(e.target.value)
 }
-className="border p-2 w-full mb-3 text-black"
+className="border border-gray-700 bg-zinc-900 text-white p-2 w-full mb-3 rounded"
 
 >
 
