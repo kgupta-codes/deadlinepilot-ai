@@ -28,6 +28,8 @@ export default function Home() {
   const [searchTerm, setSearchTerm] = useState("");
  const [filterPriority, setFilterPriority] =
 useState("All");
+const [filterStatus, setFilterStatus] =
+  useState("All");
 
 const [deadlines, setDeadlines] = useState<any[]>([]);
 const [editingId, setEditingId] =
@@ -311,6 +313,29 @@ className="bg-green-600 text-white px-4 py-2 rounded"
   className="border p-2 w-full mb-4 text-black rounded"
  />
 <select
+  value={filterStatus}
+  onChange={(e) =>
+    setFilterStatus(e.target.value)
+  }
+  className="border border-gray-700 bg-zinc-900 p-2 rounded-lg w-full mb-4"
+>
+  <option value="All">
+    All Status
+  </option>
+
+  <option value="Not Started">
+    Not Started
+  </option>
+
+  <option value="In Progress">
+    In Progress
+  </option>
+
+  <option value="Completed">
+    Completed
+  </option>
+</select>
+<select
 value={filterPriority}
 onChange={(e) =>
 setFilterPriority(e.target.value)
@@ -343,6 +368,11 @@ filterPriority === "All"
 : deadline.priority ===
 filterPriority
 )
+.filter((deadline) =>
+  filterStatus === "All"
+    ? true
+    : deadline.status === filterStatus
+)
 .sort(
 (a, b) =>
 new Date(a.dueDate).getTime() -
@@ -351,7 +381,7 @@ new Date(b.dueDate).getTime()
 .map((deadline) => (
                 <div
                   key={deadline.id}
-                  className="border p-3 rounded mb-3"
+className="border border-gray-700 bg-zinc-900 p-4 rounded-xl mb-4 hover:border-blue-500 transition-all"
                 >
                   <h4 className="font-bold">
                     {deadline.title}
