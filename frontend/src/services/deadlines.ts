@@ -15,14 +15,16 @@ export const addDeadline = async (
   title: string,
   dueDate: string,
   userId: string,
-  priority: string
+  priority: string,
+  status: string
 ) => {
   return await addDoc(collection(db, "deadlines"), {
-    title,
-    dueDate,
-    userId,
-    priority,
-    createdAt: new Date(),
+title,
+dueDate,
+userId,
+priority,
+status,
+createdAt: new Date(),
   });
 };
 
@@ -56,17 +58,19 @@ export const deleteDeadline = async (
   );
 };
 export const updateDeadline = async (
-id: string,
-title: string,
-dueDate: string,
-priority: string
+  id: string,
+  title: string,
+  dueDate: string,
+  priority: string,
+  status: string
 ) => {
 await updateDoc(
 doc(db, "deadlines", id),
 {
-title,
-dueDate,
-priority,
+  title,
+  dueDate,
+  priority,
+  status,
 }
 );
 };

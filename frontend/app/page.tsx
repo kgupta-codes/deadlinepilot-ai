@@ -22,6 +22,8 @@ export default function Home() {
   const [title, setTitle] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [priority, setPriority] = useState("Medium");
+  const [status, setStatus] =
+  useState("Not Started");
 
   const [searchTerm, setSearchTerm] = useState("");
  const [filterPriority, setFilterPriority] =
@@ -77,19 +79,21 @@ useState<string | null>(null);
 
 if (editingId) {
 await updateDeadline(
-editingId,
-title,
-dueDate,
-priority
+  editingId,
+  title,
+  dueDate,
+  priority,
+  status
 );
 
 setEditingId(null);
 } else {
 await addDeadline(
-title,
-dueDate,
-user.uid,
-priority
+  title,
+  dueDate,
+  user.uid,
+  priority,
+  status
 );
 }
 
@@ -102,6 +106,7 @@ priority
     setTitle("");
     setDueDate("");
     setPriority("Medium");
+    setStatus("Not Started");
 setEditingId(null);
 
   };
@@ -161,28 +166,32 @@ const handleLogout = async () => {
   Logout
 </button>
           </div>
-          <div className="grid grid-cols-3 gap-4 mb-6">
+<div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-6">
 
-  <div className="border p-4 rounded-lg text-center">
-    <h2 className="text-2xl font-bold">
+  <div className="border border-gray-700 p-4 rounded-xl text-center bg-zinc-900">
+    <h2 className="text-3xl font-bold">
       {deadlines.length}
     </h2>
-    <p>Total</p>
+    <p className="text-gray-400">
+      Total
+    </p>
   </div>
 
-  <div className="border p-4 rounded-lg text-center">
-    <h2 className="text-2xl font-bold">
+  <div className="border border-gray-700 p-4 rounded-xl text-center bg-zinc-900">
+    <h2 className="text-3xl font-bold text-red-400">
       {
         deadlines.filter(
           (d) => d.priority === "High"
         ).length
       }
     </h2>
-    <p>High Priority</p>
+    <p className="text-gray-400">
+      High Priority
+    </p>
   </div>
 
-  <div className="border p-4 rounded-lg text-center">
-    <h2 className="text-2xl font-bold">
+  <div className="border border-gray-700 p-4 rounded-xl text-center bg-zinc-900">
+    <h2 className="text-3xl font-bold text-yellow-400">
       {
         deadlines.filter((d) => {
           const days =
@@ -194,11 +203,39 @@ const handleLogout = async () => {
         }).length
       }
     </h2>
-    <p>Due This Week</p>
+    <p className="text-gray-400">
+      Due This Week
+    </p>
+  </div>
+
+  <div className="border border-gray-700 p-4 rounded-xl text-center bg-zinc-900">
+    <h2 className="text-3xl font-bold text-green-400">
+      {
+        deadlines.filter(
+          (d) => d.status === "Completed"
+        ).length
+      }
+    </h2>
+    <p className="text-gray-400">
+      Completed
+    </p>
+  </div>
+
+  <div className="border border-gray-700 p-4 rounded-xl text-center bg-zinc-900">
+    <h2 className="text-3xl font-bold text-blue-400">
+      {
+        deadlines.filter(
+          (d) => d.status === "In Progress"
+        ).length
+      }
+    </h2>
+    <p className="text-gray-400">
+      In Progress
+    </p>
   </div>
 
 </div>
-          <div className="border p-4 rounded-lg mb-6">
+    <div className="border p-4 rounded-lg mb-6">
             <h3 className="text-xl font-semibold mb-4">
               Add Deadline
             </h3>
@@ -233,6 +270,20 @@ const handleLogout = async () => {
               <option>Medium</option>
               <option>Low</option>
             </select>
+<select
+value={status}
+onChange={(e) =>
+setStatus(e.target.value)
+}
+className="border p-2 w-full mb-3 text-black"
+
+>
+
+  <option>Not Started</option>
+  <option>In Progress</option>
+  <option>Completed</option>
+</select>
+
 
 <button
 onClick={handleAddDeadline}
@@ -310,6 +361,22 @@ new Date(b.dueDate).getTime()
                     Due: {deadline.dueDate}
                   </p>
 <div className="mt-2">
+
+{deadline.status === "Not Started" && ( <span className="bg-gray-600 px-3 py-1 rounded text-white text-sm">
+📌 Not Started </span>
+)}
+
+{deadline.status === "In Progress" && ( <span className="bg-blue-600 px-3 py-1 rounded text-white text-sm">
+🚧 In Progress </span>
+)}
+
+{deadline.status === "Completed" && ( <span className="bg-green-600 px-3 py-1 rounded text-white text-sm">
+✅ Completed </span>
+)}
+
+</div>
+
+<div className="mt-2">
   {deadline.priority === "High" && (
     <span className="bg-red-600 px-3 py-1 rounded text-white text-sm">
       🔴 High
@@ -378,7 +445,8 @@ new Date(b.dueDate).getTime()
     setTitle(deadline.title);
     setDueDate(deadline.dueDate);
     setPriority(deadline.priority);
-  }}
+    setStatus(deadline.status);  
+}}
   className="bg-blue-600 text-white px-3 py-1 rounded"
 >
   Edit
