@@ -1,5 +1,10 @@
 "use client";
 
+import Sidebar from "@/components/Sidebar";
+import StatsCards from "@/components/StatsCards";
+import AICoach from "@/components/AICoach";
+import TodayPlan from "@/components/TodayPlan";
+import HabitTracker from "@/components/HabitTracker";
 import { useState, useEffect } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 
@@ -188,7 +193,10 @@ const progress =
             : "Sign in with Google"}
         </button>
       ) : (
-        <div className="w-full max-w-2xl">
+<div className="flex min-h-screen bg-black text-white">
+  <Sidebar />
+
+<div className="flex-1 p-8">
           <div className="text-center mb-8">
             <img
               src={user.photoURL}
@@ -611,16 +619,17 @@ className="bg-red-600 text-white px-3 py-1 rounded"
 Delete
 
 
-  </button>
+</button>
 
 </div>
-
-                </div>
-              ))
-            )}
+</div>
+))
+)}
           </div>
         </div>
-      )}
+      </div>
+    )}
     </main>
-  );
+ 
+ );
 }
