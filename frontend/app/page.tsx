@@ -31,6 +31,8 @@ useState("All");
 const [filterStatus, setFilterStatus] =
   useState("All");
 
+const [aiInsight, setAiInsight] = useState("");
+const [aiLoading, setAiLoading] = useState(false);
 const [deadlines, setDeadlines] = useState<any[]>([]);
 const [editingId, setEditingId] =
 useState<string | null>(null);
@@ -130,7 +132,35 @@ const handleLogout = async () => {
   setUser(null);
   setDeadlines([]);
 };
+const handleAnalyze = async () => {
+  setAiLoading(true);
 
+  try {
+    const response = await fetch(
+      "/api/analyze",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type":
+            "application/json",
+        },
+        body: JSON.stringify({
+          deadlines,
+        }),
+      }
+    );
+
+    const data = await response.json();
+
+    setAiInsight(data.insight);
+  } catch {
+    setAiInsight(
+      "Unable to generate AI insights."
+    );
+  }
+
+  setAiLoading(false);
+};
 const completedCount = deadlines.filter(
   (d) => d.status === "Completed"
 ).length;
@@ -355,7 +385,29 @@ className="bg-green-600 text-white px-4 py-2 rounded"
           </div>
 
           <div>
-            <h3 className="text-xl font-semibold mb-4">
+<div className="mb-6">
+  <button
+    onClick={handleAnalyze}
+    className="bg-purple-600 hover:bg-purple-700 text-white px-5 py-3 rounded-xl font-semibold"
+  >
+    {aiLoading
+      ? "Analyzing..."
+      : "✨ Analyze My Deadlines"}
+  </button>
+</div>
+
+{aiInsight && (
+  <div className="mb-6 border border-purple-500 bg-zinc-900 p-4 rounded-xl">
+    <h3 className="font-bold text-purple-400 mb-2">
+      AI Productivity Coach
+    </h3>
+
+    <pre className="whitespace-pre-wrap text-sm">
+      {aiInsight}
+    </pre>
+  </div>
+)}            
+<h3 className="text-xl font-semibold mb-4">
               My Deadlines
             </h3>
 <input
