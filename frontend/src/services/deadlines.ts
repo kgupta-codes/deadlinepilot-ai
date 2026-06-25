@@ -1,77 +1,117 @@
 import {
-collection,
-addDoc,
-getDocs,
-query,
-where,
-deleteDoc,
-doc,
-updateDoc,
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  serverTimestamp,
+  updateDoc,
+  where,
 } from "firebase/firestore";
 
+import {
+  normalizePriority,
+  normalizeStatus,
+  Priority,
+  sortByDueDate,
+  Status,
+} from "@/lib/agent";
 import { db } from "@/src/lib/firebase";
+
+export type Deadline = {
+  id: string;
+  title: string;
+  dueDate: string;
+  priority: Priority;
+  status: Status;
+  userId: string;
+};
+
+type DeadlineDocument = {
+  title?: unknown;
+  dueDate?: unknown;
+  priority?: unknown;
+  status?: unknown;
+  userId?: unknown;
+};
 
 export const addDeadline = async (
   title: string,
   dueDate: string,
   userId: string,
-  priority: string,
-  status: string
+  priority: Priority,
+  status: Status
 ) => {
   return await addDoc(collection(db, "deadlines"), {
-title,
-dueDate,
-userId,
-priority,
-status,
-createdAt: new Date(),
+    title,
+    dueDate,
+    userId,
+    priority,
+    status,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
   });
 };
 
-export const getDeadlines = async (
-  userId: string
-) => {
-  const q = query(
-    collection(db, "deadlines"),
-    where("userId", "==", userId)
-  );
+export const getDeadlines = async (userId: string): Promise<Deadline[]> => {
+  const q = query(collection(db, "deadlines"), where("userId", "==", userId));
+  const snapshot = await getDocs(q);
 
-const snapshot = await getDocs(q);
+  const deadlines: Deadline[] = snapshot.docs.map((item) => {
+    const data = item.data() as DeadlineDocument;
 
-const deadlines = snapshot.docs.map((doc) => ({
-  id: doc.id,
-  ...doc.data(),
-}));
+    return {
+      id: item.id,
+      title: typeof data.title === "string" ? data.title : "",
+      dueDate: typeof data.dueDate === "string" ? data.dueDate : "",
+      priority: normalizePriority(data.priority),
+      status: normalizeStatus(data.status),
+      userId: typeof data.userId === "string" ? data.userId : userId,
+    };
+  });
 
-return deadlines.sort(
-  (a: any, b: any) =>
-    new Date(a.dueDate).getTime() -
-    new Date(b.dueDate).getTime()
-);
+  return sortByDueDate(deadlines);
 };
 
-export const deleteDeadline = async (
-  id: string
-) => {
-  await deleteDoc(
-    doc(db, "deadlines", id)
-  );
+const assertDeadlineOwner = async (id: string, userId: string) => {
+  const reference = doc(db, "deadlines", id);
+  const snapshot = await getDoc(reference);
+
+  if (!snapshot.exists()) {
+    throw new Error("Deadline not found.");
+  }
+
+  const data = snapshot.data() as DeadlineDocument;
+
+  if (data.userId !== userId) {
+    throw new Error("Deadline does not belong to the current user.");
+  }
+
+  return reference;
 };
+
+export const deleteDeadline = async (id: string, userId: string) => {
+  const reference = await assertDeadlineOwner(id, userId);
+  await deleteDoc(reference);
+};
+
 export const updateDeadline = async (
   id: string,
+  userId: string,
   title: string,
   dueDate: string,
-  priority: string,
-  status: string
+  priority: Priority,
+  status: Status
 ) => {
-await updateDoc(
-doc(db, "deadlines", id),
-{
-  title,
-  dueDate,
-  priority,
-  status,
-}
-);
-};
+  const reference = await assertDeadlineOwner(id, userId);
 
+  await updateDoc(reference, {
+    title,
+    dueDate,
+    priority,
+    status,
+    updatedAt: serverTimestamp(),
+  });
+};

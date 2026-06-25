@@ -1,10 +1,19 @@
 "use client";
 
+import {
+  ClipboardList,
+  AlertTriangle,
+  CheckCircle,
+  TrendingUp,
+  Target,
+} from "lucide-react";
+
 type Props = {
   total: number;
   overdue: number;
   completed: number;
   highPriority: number;
+  productivityScore: number;
 };
 
 export default function StatsCards({
@@ -12,63 +21,90 @@ export default function StatsCards({
   overdue,
   completed,
   highPriority,
+  productivityScore,
 }: Props) {
-  const score = Math.max(
-    0,
-    100 - overdue * 10 + completed * 5
-  );
+  const cards = [
+    {
+      title: "Total Deadlines",
+      value: total,
+      icon: ClipboardList,
+      color: "text-blue-400",
+    },
+    {
+      title: "Overdue",
+      value: overdue,
+      icon: AlertTriangle,
+      color: "text-red-400",
+    },
+    {
+      title: "High Priority",
+      value: highPriority,
+      icon: Target,
+      color: "text-orange-400",
+    },
+    {
+      title: "Completed",
+      value: completed,
+      icon: CheckCircle,
+      color: "text-green-400",
+    },
+  ];
 
   return (
-    <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-      <div className="border border-zinc-800 rounded-xl p-4 bg-zinc-900">
-        <h2 className="text-3xl font-bold">
-          {total}
-        </h2>
-        <p className="text-gray-400">
-          Total
-        </p>
-      </div>
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
+      {cards.map((card) => {
+        const Icon = card.icon;
 
-      <div className="border border-zinc-800 rounded-xl p-4 bg-zinc-900">
-        <h2 className="text-3xl font-bold text-red-500">
-          {highPriority}
-        </h2>
-        <p className="text-gray-400">
-          High Priority
-        </p>
-      </div>
-
-      <div className="border border-zinc-800 rounded-xl p-4 bg-zinc-900">
-        <h2 className="text-3xl font-bold text-green-500">
-          {completed}
-        </h2>
-        <p className="text-gray-400">
-          Completed
-        </p>
-      </div>
-
-      <div className="border border-zinc-800 rounded-xl p-4 bg-zinc-900">
-        <h2 className="text-3xl font-bold text-red-400">
-          {overdue}
-        </h2>
-        <p className="text-gray-400">
-          Overdue
-        </p>
-      </div>
-
-      <div className="border border-zinc-800 rounded-xl p-4 bg-zinc-900">
-        <h2 className="text-3xl font-bold text-purple-400">
-          {score}%
-        </h2>
-        <p className="text-gray-400">
-          Productivity
-        </p>
-
-        <div className="w-full bg-zinc-800 h-2 rounded mt-2">
+        return (
           <div
-            className="bg-purple-500 h-2 rounded"
+            key={card.title}
+            className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 hover:border-purple-500 transition-all"
+          >
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-gray-400 text-sm">
+                  {card.title}
+                </p>
+
+                <h2
+                  className={`text-3xl font-bold mt-2 ${card.color}`}
+                >
+                  {card.value}
+                </h2>
+              </div>
+
+              <Icon
+                className={card.color}
+                size={28}
+              />
+            </div>
+          </div>
+        );
+      })}
+
+      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 hover:border-purple-500 transition-all">
+        <div className="flex justify-between items-center">
+          <div>
+            <p className="text-gray-400 text-sm">
+              Productivity Score
+            </p>
+
+            <h2 className="text-3xl font-bold text-purple-400 mt-2">
+              {productivityScore}
+            </h2>
+          </div>
+
+          <TrendingUp
+            className="text-purple-400"
+            size={28}
+          />
+        </div>
+
+        <div className="w-full bg-zinc-800 h-2 rounded-full mt-4">
+          <div
+            className="bg-gradient-to-r from-purple-500 to-blue-500 h-2 rounded-full"
             style={{
-              width: `${score}%`,
+              width: `${productivityScore}%`,
             }}
           />
         </div>
