@@ -9,6 +9,8 @@ import {
   Settings,
   Workflow,
   Zap,
+  Rocket,
+  ChevronDown,
 } from "lucide-react";
 
 export type NavSection = {
@@ -41,42 +43,54 @@ export default function Sidebar({
 }: Props) {
   return (
     <>
-      <aside className="hidden md:block sticky top-0 h-screen w-72 shrink-0 bg-[#09090B] border-r border-zinc-800 p-6">
-        <h1 className="text-2xl font-bold text-purple-500">
-          DeadlinePilot AI
-        </h1>
+      <aside className="hidden md:block sticky top-0 h-screen w-[250px] shrink-0 bg-[#09090B] border-r border-zinc-800 p-6">
+<div className="flex items-center gap-3">
+  <div className="rounded-xl bg-gradient-to-br from-violet-600 to-purple-500 p-2">
+    <Rocket className="h-5 w-5 text-white" />
+  </div>
 
-        <nav className="mt-10 space-y-2" aria-label="Primary navigation">
+  <div>
+    <h1 className="text-2xl font-bold text-white">
+      DeadlinePilot AI
+    </h1>
+
+    <p className="text-xs text-zinc-500">
+      AI Productivity Companion
+    </p>
+  </div>
+</div>
+
+        <nav className="mt-10 space-y-3" aria-label="Primary navigation">
           {sections.map((section) => {
             const Icon =
               iconMap[section.id as keyof typeof iconMap] || LayoutDashboard;
             const active = activeSection === section.id;
 
             return (
-              <button
-                key={section.id}
-                type="button"
-                onClick={() => onNavigate(section.id)}
-                aria-current={active ? "location" : undefined}
-                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition focus:outline-none focus:ring-2 focus:ring-purple-500 ${
-                  active
-                    ? "bg-purple-600 text-white"
-                    : "text-gray-300 hover:bg-zinc-900 hover:text-white"
-                }`}
-              >
-                <Icon size={18} aria-hidden="true" />
-                {section.label}
-              </button>
+<button
+  key={section.id}
+  type="button"
+  onClick={() => onNavigate(section.id)}
+  aria-current={active ? "location" : undefined}
+  className={`flex w-full items-center gap-3 rounded-xl border border-transparent px-4 py-3 text-left text-sm transition focus:outline-none focus:ring-2 focus:ring-purple-500 ${
+    active
+      ? "bg-gradient-to-r from-violet-600 to-purple-600 shadow-lg shadow-violet-600/30 text-white"
+      : "text-gray-300 hover:bg-zinc-900 hover:border-violet-600/30 hover:text-white"
+  }`}
+>
+  <Icon size={18} aria-hidden="true" />
+  {section.label}
+</button>
             );
           })}
         </nav>
       </aside>
 
       <nav
-        className="md:hidden sticky top-0 z-20 border-b border-zinc-800 bg-zinc-950/95 px-4 py-3"
+        className="md:hidden sticky top-0 z-20 border-b border-zinc-800 bg-[#0B0B12] px-4 py-3"
         aria-label="Mobile navigation"
       >
-        <div className="flex gap-2 overflow-x-auto">
+        <div className="flex gap-6 overflow-x-auto">
           {sections.map((section) => {
             const active = activeSection === section.id;
 
