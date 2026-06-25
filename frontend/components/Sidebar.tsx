@@ -41,7 +41,7 @@ export default function Sidebar({
 }: Props) {
   return (
     <>
-      <aside className="hidden md:block sticky top-0 h-screen w-64 shrink-0 bg-zinc-950 border-r border-zinc-800 p-6">
+      <aside className="hidden md:block sticky top-0 h-screen w-72 shrink-0 bg-[#09090B] border-r border-zinc-800 p-6">
         <h1 className="text-2xl font-bold text-purple-500">
           DeadlinePilot AI
         </h1>
