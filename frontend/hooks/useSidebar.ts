@@ -2,18 +2,16 @@
 
 import { useEffect, useState } from "react";
 
-import { NavSection } from "@/components/Sidebar";
+import type { NavSection } from "@/components/dashboard/Sidebar";
 
 export const navSections: NavSection[] = [
   { id: "dashboard", label: "Dashboard" },
-  { id: "planner", label: "Planner" },
-  { id: "today-plan", label: "Today's Plan" },
-  { id: "analytics", label: "Analytics" },
+  { id: "capture", label: "Capture" },
   { id: "deadlines", label: "Deadlines" },
-  { id: "ai-coach", label: "AI Coach" },
-  { id: "settings", label: "Settings" },
-  { id: "integrations", label: "Integrations" },
   { id: "calendar", label: "Calendar" },
+  { id: "assistant", label: "AI Assistant" },
+  { id: "analytics", label: "Analytics" },
+  { id: "settings", label: "Settings" },
 ];
 
 export const useSidebar = (enabled: boolean) => {

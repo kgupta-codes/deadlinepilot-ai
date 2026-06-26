@@ -50,10 +50,7 @@ export default function CalendarPanel({
   const connected = connection.connected;
 
   return (
-    <section
-      id="calendar"
-      className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6"
-    >
+    <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h3 className="text-2xl font-bold text-purple-400">
@@ -198,6 +195,6 @@ export default function CalendarPanel({
           </div>
         </section>
       </div>
-    </section>
+    </div>
   );
 }

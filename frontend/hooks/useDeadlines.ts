@@ -9,6 +9,7 @@ import {
   deleteDeadline,
   Deadline,
   getDeadlines,
+  DeadlineWriteInput,
   updateDeadline,
 } from "@/src/services/deadlines";
 
@@ -86,31 +87,26 @@ export const useDeadlines = (user: User | null) => {
     };
   }, [user]);
 
-  const saveDeadline = async () => {
-    if (!form.title || !form.dueDate || !user) {
+  const saveDeadlineRecord = async (
+    input: DeadlineWriteInput,
+    deadlineId: string | null = null
+  ) => {
+    if (!user) {
+      setDeadlineMessage("Sign in before saving deadlines.");
+      return;
+    }
+
+    if (!input.title || !input.dueDate) {
       setDeadlineMessage("Add a title and due date before saving.");
       return;
     }
 
     try {
-      if (form.editingId) {
-        await updateDeadline(
-          form.editingId,
-          user.uid,
-          form.title,
-          form.dueDate,
-          form.priority,
-          form.status
-        );
+      if (deadlineId) {
+        await updateDeadline(deadlineId, user.uid, input);
         setDeadlineMessage("Deadline updated.");
       } else {
-        await addDeadline(
-          form.title,
-          form.dueDate,
-          user.uid,
-          form.priority,
-          form.status
-        );
+        await addDeadline(input, user.uid);
         setDeadlineMessage("Deadline saved to Firestore.");
       }
 
@@ -120,6 +116,31 @@ export const useDeadlines = (user: User | null) => {
       console.error(error);
       setDeadlineMessage("Could not save the deadline. Try again.");
     }
+  };
+
+  const saveDeadline = async () => {
+    if (!form.title || !form.dueDate || !user) {
+      setDeadlineMessage("Add a title and due date before saving.");
+      return;
+    }
+
+    const existing = form.editingId
+      ? deadlines.find((deadline) => deadline.id === form.editingId)
+      : null;
+
+    const mergedInput: DeadlineWriteInput = {
+      title: form.title,
+      dueDate: form.dueDate,
+      priority: form.priority,
+      status: form.status,
+      estimatedHours: existing?.estimatedHours ?? null,
+      category: existing?.category ?? "",
+      notes: existing?.notes ?? "",
+      origin: existing?.origin ?? "manual",
+      aiMetadata: existing?.aiMetadata ?? null,
+    };
+
+    await saveDeadlineRecord(mergedInput, form.editingId);
   };
 
   const removeDeadline = async (id: string) => {
@@ -175,7 +196,9 @@ export const useDeadlines = (user: User | null) => {
     removeDeadline,
     resetForm,
     saveDeadline,
+    saveDeadlineRecord,
     clearDeadlines,
+    refreshDeadlines,
     setDeadlineMessage,
     setFilters,
     setForm,

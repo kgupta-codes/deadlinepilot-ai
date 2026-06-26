@@ -1,41 +1,32 @@
-import UpcomingDeadlines from "@/components/UpcomingDeadlines";
-import CalendarSection from "./CalendarSection";
-import QuickStats from "./QuickStats";
+import type { User } from "firebase/auth";
+
+import AICommandCenter from "./AICommandCenter";
+import type { DashboardSnapshot } from "@/hooks/useDashboard";
 
 type Props = {
-  deadlines: any;
-  calendar: any;
+  user: User;
+  greeting: string;
+  planner: DashboardSnapshot["planner"];
+  recommendation: string;
+  loading: boolean;
 };
 
 export default function DashboardGrid({
-  deadlines,
-  calendar,
+  user,
+  greeting,
+  planner,
+  recommendation,
+  loading,
 }: Props) {
   return (
-    <section className="space-y-6">
-      <div className="grid gap-6 xl:grid-cols-3">
-        <div>
-          <UpcomingDeadlines deadlines={deadlines} />
-        </div>
-
-        <div>
-          <CalendarSection
-            actionLoading={calendar.actionLoading}
-            connect={calendar.connect}
-            connection={calendar.connection}
-            conflicts={calendar.conflicts}
-            disconnect={calendar.disconnect}
-            errorMessage={calendar.errorMessage}
-            events={calendar.events}
-            loading={calendar.loading}
-            studySlots={calendar.studySlots}
-          />
-        </div>
-
-        <div>
-          <QuickStats />
-        </div>
-      </div>
-    </section>
+    <div className="space-y-6">
+      <AICommandCenter
+        user={user}
+        greeting={greeting}
+        planner={planner}
+        recommendation={recommendation}
+        loading={loading}
+      />
+    </div>
   );
 }

@@ -8,7 +8,7 @@ export type AgentTask = {
   dueDate: string;
   priority: string;
   status: string;
-  estimatedHours?: number;
+  estimatedHours?: number | null;
 };
 
 export type FocusTaskInsight = {

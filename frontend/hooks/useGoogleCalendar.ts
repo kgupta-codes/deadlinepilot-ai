@@ -16,6 +16,19 @@ import {
   StudySlot,
 } from "@/lib/integrations/googleCalendar";
 
+export type GoogleCalendarState = {
+  actionLoading: boolean;
+  connect: () => Promise<void>;
+  connection: GoogleCalendarConnection;
+  conflicts: BusySlot[];
+  disconnect: () => Promise<void>;
+  errorMessage: string;
+  events: CalendarEvent[];
+  loading: boolean;
+  refresh: () => Promise<void>;
+  studySlots: StudySlot[];
+};
+
 export const useGoogleCalendar = () => {
   const [connection, setConnection] = useState<GoogleCalendarConnection>({
     provider: "google-calendar",
@@ -115,5 +128,5 @@ export const useGoogleCalendar = () => {
     loading,
     refresh,
     studySlots,
-  };
+  } satisfies GoogleCalendarState;
 };

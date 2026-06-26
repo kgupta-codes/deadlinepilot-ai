@@ -20,6 +20,25 @@ import {
 } from "@/lib/agent";
 import { db } from "@/src/lib/firebase";
 
+export type DeadlineOrigin =
+  | "manual"
+  | "natural_language"
+  | "pdf"
+  | "screenshot"
+  | "gmail"
+  | "calendar"
+  | "voice"
+  | "drive";
+
+export type DeadlineAiMetadata = {
+  source: "gemini" | "manual";
+  model: string | null;
+  confidence: number | null;
+  rawText: string | null;
+  promptVersion: string | null;
+  extractedAt: string | null;
+};
+
 export type Deadline = {
   id: string;
   title: string;
@@ -27,6 +46,11 @@ export type Deadline = {
   priority: Priority;
   status: Status;
   userId: string;
+  estimatedHours: number | null;
+  category: string;
+  notes: string;
+  origin: DeadlineOrigin;
+  aiMetadata: DeadlineAiMetadata | null;
 };
 
 type DeadlineDocument = {
@@ -35,23 +59,127 @@ type DeadlineDocument = {
   priority?: unknown;
   status?: unknown;
   userId?: unknown;
+  estimatedHours?: unknown;
+  category?: unknown;
+  notes?: unknown;
+  origin?: unknown;
+  aiMetadata?: unknown;
 };
 
+export type DeadlineWriteInput = {
+  title: string;
+  dueDate: string;
+  priority: Priority;
+  status: Status;
+  estimatedHours?: number | null;
+  category?: string;
+  notes?: string;
+  origin?: DeadlineOrigin;
+  aiMetadata?: DeadlineAiMetadata | null;
+};
+
+const normalizeString = (value: unknown) =>
+  typeof value === "string" ? value : "";
+
+const normalizeEstimatedHours = (value: unknown) => {
+  if (typeof value === "number" && Number.isFinite(value) && value >= 0) {
+    return value;
+  }
+
+  return null;
+};
+
+const normalizeConfidence = (value: unknown) => {
+  if (
+    typeof value === "number" &&
+    Number.isFinite(value) &&
+    value >= 0 &&
+    value <= 100
+  ) {
+    return Math.round(value);
+  }
+
+  return null;
+};
+
+const normalizeOrigin = (value: unknown): DeadlineOrigin => {
+  if (
+    value === "manual" ||
+    value === "natural_language" ||
+    value === "pdf" ||
+    value === "screenshot" ||
+    value === "gmail" ||
+    value === "calendar" ||
+    value === "voice" ||
+    value === "drive"
+  ) {
+    return value;
+  }
+
+  return "manual";
+};
+
+const normalizeAiMetadata = (value: unknown): DeadlineAiMetadata | null => {
+  if (!value || typeof value !== "object") {
+    return null;
+  }
+
+  const candidate = value as Partial<DeadlineAiMetadata>;
+
+  if (
+    candidate.source !== "gemini" &&
+    candidate.source !== "manual"
+  ) {
+    return null;
+  }
+
+  return {
+    source: candidate.source,
+    model: normalizeString(candidate.model),
+    confidence: normalizeConfidence(candidate.confidence),
+    rawText: normalizeString(candidate.rawText),
+    promptVersion: normalizeString(candidate.promptVersion),
+    extractedAt: normalizeString(candidate.extractedAt),
+  };
+};
+
+const toDeadlineRecord = (
+  input: DeadlineWriteInput,
+  userId: string
+) => ({
+  title: input.title,
+  dueDate: input.dueDate,
+  userId,
+  priority: input.priority,
+  status: input.status,
+  estimatedHours: input.estimatedHours ?? null,
+  category: input.category ?? "",
+  notes: input.notes ?? "",
+  origin: input.origin ?? "manual",
+  aiMetadata: input.aiMetadata ?? null,
+  createdAt: serverTimestamp(),
+  updatedAt: serverTimestamp(),
+});
+
+const toDeadlineUpdateRecord = (input: DeadlineWriteInput) => ({
+  title: input.title,
+  dueDate: input.dueDate,
+  priority: input.priority,
+  status: input.status,
+  estimatedHours: input.estimatedHours ?? null,
+  category: input.category ?? "",
+  notes: input.notes ?? "",
+  origin: input.origin ?? "manual",
+  aiMetadata: input.aiMetadata ?? null,
+  updatedAt: serverTimestamp(),
+});
+
 export const addDeadline = async (
-  title: string,
-  dueDate: string,
-  userId: string,
-  priority: Priority,
-  status: Status
+  input: DeadlineWriteInput,
+  userId: string
 ) => {
   return await addDoc(collection(db, "deadlines"), {
-    title,
-    dueDate,
-    userId,
-    priority,
-    status,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
+    ...toDeadlineRecord(input, userId),
   });
 };
 
@@ -69,6 +197,11 @@ export const getDeadlines = async (userId: string): Promise<Deadline[]> => {
       priority: normalizePriority(data.priority),
       status: normalizeStatus(data.status),
       userId: typeof data.userId === "string" ? data.userId : userId,
+      estimatedHours: normalizeEstimatedHours(data.estimatedHours),
+      category: normalizeString(data.category),
+      notes: normalizeString(data.notes),
+      origin: normalizeOrigin(data.origin),
+      aiMetadata: normalizeAiMetadata(data.aiMetadata),
     };
   });
 
@@ -100,18 +233,11 @@ export const deleteDeadline = async (id: string, userId: string) => {
 export const updateDeadline = async (
   id: string,
   userId: string,
-  title: string,
-  dueDate: string,
-  priority: Priority,
-  status: Status
+  input: DeadlineWriteInput
 ) => {
   const reference = await assertDeadlineOwner(id, userId);
 
   await updateDoc(reference, {
-    title,
-    dueDate,
-    priority,
-    status,
-    updatedAt: serverTimestamp(),
+    ...toDeadlineUpdateRecord(input),
   });
 };
