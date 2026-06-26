@@ -3,7 +3,7 @@ export { default as Header } from "./Header";
 export { default as AIDailyBrief } from "./AIDailyBrief";
 export { default as UpcomingDeadlines } from "./UpcomingDeadlines";
 export { default as SmartSchedule } from "./SmartSchedule";
-export { default as AIStudyPlan } from "./AIStudyPlan";
+export { default as AIStudyPlanCard } from "./AIStudyPlanCard";
 export { default as FocusMode } from "./FocusMode";
 export { default as DeadlineRiskChart } from "./DeadlineRiskChart";
 export { default as CompletionProbabilityChart } from "./CompletionProbabilityChart";

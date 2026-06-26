@@ -1,3 +1,5 @@
+"use client";
+
 import {
   BusySlot,
   CalendarEvent,
@@ -50,7 +52,7 @@ export default function CalendarPanel({
   return (
     <section
       id="calendar"
-      className="mb-8 rounded-2xl border border-zinc-800 bg-zinc-900 p-6"
+      className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6"
     >
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -67,7 +69,7 @@ export default function CalendarPanel({
             type="button"
             onClick={disconnect}
             disabled={actionLoading}
-            className="rounded-xl border border-zinc-700 bg-zinc-950/60 px-5 py-3 font-semibold text-white transition hover:border-purple-500 disabled:cursor-not-allowed disabled:opacity-70 focus:outline-none focus:ring-2 focus:ring-purple-400"
+            className="rounded-xl border border-zinc-700 bg-zinc-950/60 px-5 py-3 font-semibold hover:border-purple-500"
           >
             {actionLoading ? "Disconnecting..." : "Disconnect"}
           </button>
@@ -76,7 +78,7 @@ export default function CalendarPanel({
             type="button"
             onClick={onConnect}
             disabled={actionLoading}
-            className="rounded-xl bg-purple-600 px-5 py-3 font-semibold text-white transition hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-70 focus:outline-none focus:ring-2 focus:ring-purple-400"
+            className="rounded-xl bg-purple-600 px-5 py-3 font-semibold text-white hover:bg-purple-700"
           >
             {actionLoading ? "Connecting..." : "Connect Google Calendar"}
           </button>
@@ -87,35 +89,40 @@ export default function CalendarPanel({
         <span
           className={`rounded-full px-3 py-1 text-xs font-semibold ${
             connected
-              ? "bg-green-500/15 text-green-300"
+              ? "bg-green-500/20 text-green-300"
               : "bg-zinc-800 text-gray-300"
           }`}
         >
-          {connection.connected ? "Connected" : "Not connected"}
+          {connected ? "Connected" : "Not Connected"}
         </span>
+
         {connection.email && (
-          <span className="rounded-full border border-zinc-700 bg-zinc-950/60 px-3 py-1 text-xs font-semibold text-gray-300">
+          <span className="rounded-full border border-zinc-700 px-3 py-1 text-xs">
             {connection.email}
           </span>
         )}
-        <span className="text-sm text-gray-400">{connection.message}</span>
       </div>
 
       {errorMessage && (
-        <p className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-100">
+        <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-red-300">
           {errorMessage}
-        </p>
+        </div>
       )}
 
       <div className="mt-6 grid gap-4 xl:grid-cols-3">
+        {/* Upcoming Events */}
         <section className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
           <h4 className="font-semibold text-purple-200">Upcoming Events</h4>
+
           <div className="mt-3 space-y-3">
             {loading ? (
-              <EmptyState message="Loading calendar status and events..." />
+              <EmptyState message="Loading calendar events..." />
             ) : events.length > 0 ? (
               events.map((event) => (
-                <div key={event.id} className="rounded-lg bg-zinc-900 p-3">
+                <div
+                  key={event.id}
+                  className="rounded-lg bg-zinc-900 p-3"
+                >
                   <p className="font-semibold">{event.title}</p>
                   <p className="mt-1 text-sm text-gray-400">
                     {formatWindow(event.start, event.end)}
@@ -123,54 +130,70 @@ export default function CalendarPanel({
                 </div>
               ))
             ) : (
-              <EmptyState message="No upcoming events available." />
+              <EmptyState message="No upcoming events." />
             )}
           </div>
         </section>
 
+        {/* Conflicts */}
         <section className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
           <h4 className="font-semibold text-purple-200">
             Conflict Detection
           </h4>
+
           <div className="mt-3 space-y-3">
             {loading ? (
-              <EmptyState message="Scanning for conflicts..." />
+              <EmptyState message="Scanning conflicts..." />
             ) : conflicts.length > 0 ? (
               conflicts.map((slot) => (
-                <div key={slot.id} className="rounded-lg bg-zinc-900 p-3">
+                <div
+                  key={slot.id}
+                  className="rounded-lg bg-zinc-900 p-3"
+                >
                   <p className="font-semibold">{slot.title}</p>
                   <p className="mt-1 text-sm text-gray-400">
                     {formatWindow(slot.start, slot.end)}
                   </p>
-                  <p className="mt-1 text-sm text-gray-500">{slot.reason}</p>
+                  <p className="mt-1 text-sm text-gray-500">
+                    {slot.reason}
+                  </p>
                 </div>
               ))
             ) : (
-              <EmptyState message="No conflicts detected from loaded calendar events." />
+              <EmptyState message="No conflicts detected." />
             )}
           </div>
         </section>
 
+        {/* Study Slots */}
         <section className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
           <h4 className="font-semibold text-purple-200">
             Suggested Study Slots
           </h4>
+
           <div className="mt-3 space-y-3">
             {loading ? (
               <EmptyState message="Calculating study slots..." />
             ) : studySlots.length > 0 ? (
               studySlots.map((slot) => (
-                <div key={slot.id} className="rounded-lg bg-zinc-900 p-3">
+                <div
+                  key={slot.id}
+                  className="rounded-lg bg-zinc-900 p-3"
+                >
                   <p className="font-semibold">{slot.label}</p>
+
                   <p className="mt-1 text-sm text-gray-400">
-                    {formatWindow(slot.start, slot.end)} ·{" "}
-                    {slot.durationMinutes} minutes
+                    {formatWindow(slot.start, slot.end)} •{" "}
+                    {slot.durationMinutes} min
                   </p>
-                  <p className="mt-1 text-sm text-gray-500">{slot.reason}</p>
+
+                  <p className="mt-1 text-sm text-gray-500">
+                    {slot.reason}
+                  </p>
                 </div>
               ))
             ) : (
-              <EmptyState message="No study slots available until calendar events are loaded." />
+              <EmptyState message="No study slots available." />
             )}
           </div>
         </section>
