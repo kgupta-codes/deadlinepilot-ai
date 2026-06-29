@@ -1,0 +1,1 @@
+export { extractTask } from "./mock";

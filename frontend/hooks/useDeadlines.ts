@@ -12,6 +12,7 @@ import {
   DeadlineWriteInput,
   updateDeadline,
 } from "@/src/services/deadlines";
+import type { ToastInput } from "@/hooks/useToasts";
 
 const defaultPriority: Priority = "Medium";
 const defaultStatus: Status = "Not Started";
@@ -30,9 +31,12 @@ export type DeadlineFiltersState = {
   status: Status | "All";
 };
 
-export const useDeadlines = (user: User | null) => {
+type NotifyToast = (toast: ToastInput) => void;
+
+export const useDeadlines = (user: User | null, notify?: NotifyToast) => {
   const [deadlines, setDeadlines] = useState<Deadline[]>([]);
   const [deadlineMessage, setDeadlineMessage] = useState("");
+  const [loading, setLoading] = useState(false);
   const [form, setForm] = useState<DeadlineFormState>({
     title: "",
     dueDate: "",
@@ -57,8 +61,14 @@ export const useDeadlines = (user: User | null) => {
   };
 
   const refreshDeadlines = async (userId: string) => {
-    const updated = await getDeadlines(userId);
-    setDeadlines(updated);
+    setLoading(true);
+
+    try {
+      const updated = await getDeadlines(userId);
+      setDeadlines(updated);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -79,13 +89,18 @@ export const useDeadlines = (user: User | null) => {
 
         if (!cancelled) {
           setDeadlineMessage("Could not load deadlines. Try again.");
+          notify?.({
+            title: "Deadline load failed",
+            description: "Could not load deadlines from Firestore.",
+            tone: "error",
+          });
         }
       });
 
     return () => {
       cancelled = true;
     };
-  }, [user]);
+  }, [notify, user]);
 
   const saveDeadlineRecord = async (
     input: DeadlineWriteInput,
@@ -101,7 +116,34 @@ export const useDeadlines = (user: User | null) => {
       return;
     }
 
+    const snapshot = deadlines;
+    const optimisticDeadline: Deadline = {
+      id: deadlineId ?? `optimistic-${Date.now()}`,
+      title: input.title,
+      dueDate: input.dueDate,
+      priority: input.priority,
+      status: input.status,
+      userId: user.uid,
+      estimatedHours: input.estimatedHours ?? null,
+      category: input.category ?? "",
+      description: input.description ?? "",
+      subtasks: input.subtasks ?? [],
+      notes: input.notes ?? "",
+      origin: input.origin ?? "manual",
+      aiMetadata: input.aiMetadata ?? null,
+    };
+
     try {
+      if (deadlineId) {
+        setDeadlines((current) =>
+          current.map((deadline) =>
+            deadline.id === deadlineId ? { ...deadline, ...optimisticDeadline } : deadline
+          )
+        );
+      } else {
+        setDeadlines((current) => [optimisticDeadline, ...current]);
+      }
+
       if (deadlineId) {
         await updateDeadline(deadlineId, user.uid, input);
         setDeadlineMessage("Deadline updated.");
@@ -112,9 +154,20 @@ export const useDeadlines = (user: User | null) => {
 
       await refreshDeadlines(user.uid);
       resetForm();
+      notify?.({
+        title: deadlineId ? "Deadline updated" : "Deadline saved",
+        description: input.title,
+        tone: "success",
+      });
     } catch (error) {
       console.error(error);
+      setDeadlines(snapshot);
       setDeadlineMessage("Could not save the deadline. Try again.");
+      notify?.({
+        title: "Save failed",
+        description: "The deadline could not be written to Firestore.",
+        tone: "error",
+      });
     }
   };
 
@@ -135,6 +188,8 @@ export const useDeadlines = (user: User | null) => {
       status: form.status,
       estimatedHours: existing?.estimatedHours ?? null,
       category: existing?.category ?? "",
+      description: existing?.description ?? "",
+      subtasks: existing?.subtasks ?? [],
       notes: existing?.notes ?? "",
       origin: existing?.origin ?? "manual",
       aiMetadata: existing?.aiMetadata ?? null,
@@ -146,13 +201,27 @@ export const useDeadlines = (user: User | null) => {
   const removeDeadline = async (id: string) => {
     if (!user) return;
 
+    const snapshot = deadlines;
+
     try {
+      setDeadlines((current) => current.filter((deadline) => deadline.id !== id));
       await deleteDeadline(id, user.uid);
       await refreshDeadlines(user.uid);
       setDeadlineMessage("Deadline deleted.");
+      notify?.({
+        title: "Deadline deleted",
+        description: "The item was removed from Firestore.",
+        tone: "success",
+      });
     } catch (error) {
       console.error(error);
+      setDeadlines(snapshot);
       setDeadlineMessage("Could not delete the deadline. Try again.");
+      notify?.({
+        title: "Delete failed",
+        description: "The deadline could not be removed.",
+        tone: "error",
+      });
     }
   };
 
@@ -198,6 +267,7 @@ export const useDeadlines = (user: User | null) => {
     saveDeadline,
     saveDeadlineRecord,
     clearDeadlines,
+    loading,
     refreshDeadlines,
     setDeadlineMessage,
     setFilters,

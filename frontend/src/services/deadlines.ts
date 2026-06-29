@@ -31,7 +31,7 @@ export type DeadlineOrigin =
   | "drive";
 
 export type DeadlineAiMetadata = {
-  source: "gemini" | "manual";
+  source: "gemini" | "mock" | "manual";
   model: string | null;
   confidence: number | null;
   rawText: string | null;
@@ -48,6 +48,8 @@ export type Deadline = {
   userId: string;
   estimatedHours: number | null;
   category: string;
+  description: string;
+  subtasks: string[];
   notes: string;
   origin: DeadlineOrigin;
   aiMetadata: DeadlineAiMetadata | null;
@@ -61,6 +63,8 @@ type DeadlineDocument = {
   userId?: unknown;
   estimatedHours?: unknown;
   category?: unknown;
+  description?: unknown;
+  subtasks?: unknown;
   notes?: unknown;
   origin?: unknown;
   aiMetadata?: unknown;
@@ -73,6 +77,8 @@ export type DeadlineWriteInput = {
   status: Status;
   estimatedHours?: number | null;
   category?: string;
+  description?: string;
+  subtasks?: string[];
   notes?: string;
   origin?: DeadlineOrigin;
   aiMetadata?: DeadlineAiMetadata | null;
@@ -87,6 +93,17 @@ const normalizeEstimatedHours = (value: unknown) => {
   }
 
   return null;
+};
+
+const normalizeStringArray = (value: unknown) => {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter((item): item is string => typeof item === "string")
+    .map((item) => item.trim())
+    .filter((item) => item.length > 0);
 };
 
 const normalizeConfidence = (value: unknown) => {
@@ -128,6 +145,7 @@ const normalizeAiMetadata = (value: unknown): DeadlineAiMetadata | null => {
 
   if (
     candidate.source !== "gemini" &&
+    candidate.source !== "mock" &&
     candidate.source !== "manual"
   ) {
     return null;
@@ -154,6 +172,8 @@ const toDeadlineRecord = (
   status: input.status,
   estimatedHours: input.estimatedHours ?? null,
   category: input.category ?? "",
+  description: input.description ?? "",
+  subtasks: input.subtasks ?? [],
   notes: input.notes ?? "",
   origin: input.origin ?? "manual",
   aiMetadata: input.aiMetadata ?? null,
@@ -168,6 +188,8 @@ const toDeadlineUpdateRecord = (input: DeadlineWriteInput) => ({
   status: input.status,
   estimatedHours: input.estimatedHours ?? null,
   category: input.category ?? "",
+  description: input.description ?? "",
+  subtasks: input.subtasks ?? [],
   notes: input.notes ?? "",
   origin: input.origin ?? "manual",
   aiMetadata: input.aiMetadata ?? null,
@@ -199,6 +221,8 @@ export const getDeadlines = async (userId: string): Promise<Deadline[]> => {
       userId: typeof data.userId === "string" ? data.userId : userId,
       estimatedHours: normalizeEstimatedHours(data.estimatedHours),
       category: normalizeString(data.category),
+      description: normalizeString(data.description),
+      subtasks: normalizeStringArray(data.subtasks),
       notes: normalizeString(data.notes),
       origin: normalizeOrigin(data.origin),
       aiMetadata: normalizeAiMetadata(data.aiMetadata),

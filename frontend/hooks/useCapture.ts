@@ -4,12 +4,13 @@ import { useState } from "react";
 
 import { Priority } from "@/lib/agent";
 import {
-  CAPTURE_PROMPT_VERSION,
-  type CaptureExtractionRequest,
-  type CaptureExtractionResult,
+  CAPTURE_EXTRACTION_VERSION,
+  extractTask,
   type CaptureMode,
-} from "@/lib/ai/capture";
+  type ExtractedTask,
+} from "@/src/services/ai";
 import type { DeadlineWriteInput } from "@/src/services/deadlines";
+import type { ToastInput } from "@/hooks/useToasts";
 
 export type CaptureTaskDraft = {
   title: string;
@@ -17,36 +18,42 @@ export type CaptureTaskDraft = {
   estimatedHours: number | null;
   priority: Priority;
   category: string;
-  notes: string;
+  description: string;
+  subtasks: string[];
   confidence: number;
+  source: "mock" | "gemini";
 };
 
 type CaptureHookOptions = {
   saveDeadlineRecord: (input: DeadlineWriteInput) => Promise<void>;
+  notify?: (toast: ToastInput) => void;
 };
 
 const mapExtractionToDraft = (
-  extraction: CaptureExtractionResult
+  extraction: ExtractedTask
 ): CaptureTaskDraft => ({
   title: extraction.title,
   dueDate: extraction.dueDate,
   estimatedHours: extraction.estimatedHours,
   priority: extraction.priority,
   category: extraction.category,
-  notes: extraction.notes,
+  description: extraction.description,
+  subtasks: extraction.subtasks,
   confidence: extraction.confidence,
+  source: extraction.source,
 });
 
-const buildRequestPayload = (
-  input: string
-): CaptureExtractionRequest => ({
-  input,
-  currentDate: new Date().toISOString(),
-  timeZone:
-    Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
-});
+const buildCaptureNotes = (description: string, subtasks: string[]) => {
+  const lines = [description.trim()].filter(Boolean);
 
-export const useCapture = ({ saveDeadlineRecord }: CaptureHookOptions) => {
+  if (subtasks.length > 0) {
+    lines.push(`Subtasks:\n${subtasks.map((item) => `- ${item}`).join("\n")}`);
+  }
+
+  return lines.join("\n\n").trim();
+};
+
+export const useCapture = ({ notify, saveDeadlineRecord }: CaptureHookOptions) => {
   const [mode, setMode] = useState<CaptureMode>("natural_language");
   const [input, setInput] = useState("");
   const [draft, setDraft] = useState<CaptureTaskDraft | null>(null);
@@ -75,37 +82,23 @@ export const useCapture = ({ saveDeadlineRecord }: CaptureHookOptions) => {
     resetMessages();
 
     try {
-      const response = await fetch("/api/capture", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(buildRequestPayload(input.trim())),
-      });
-
-      const data = (await response.json()) as
-        | {
-            success?: boolean;
-            message?: string;
-            extraction?: CaptureExtractionResult;
-            promptVersion?: string;
-          }
-        | undefined;
-
-      if (!response.ok || !data?.success || !data.extraction) {
-        setErrorMessage(
-          data?.message ||
-            "Gemini could not extract a task. Try rephrasing the deadline."
-        );
-        return;
-      }
-
-      setDraft(mapExtractionToDraft(data.extraction));
+      const extraction = extractTask(input.trim());
+      setDraft(mapExtractionToDraft(extraction));
       setStatusMessage("Review the extracted task before saving.");
+      notify?.({
+        title: "Task extracted",
+        description: "Review the editable preview before saving to Firestore.",
+        tone: "success",
+      });
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Capture extraction failed.";
       setErrorMessage(message);
+      notify?.({
+        title: "Extraction failed",
+        description: message,
+        tone: "error",
+      });
     } finally {
       setExtracting(false);
     }
@@ -131,6 +124,8 @@ export const useCapture = ({ saveDeadlineRecord }: CaptureHookOptions) => {
     resetMessages();
 
     try {
+      const notes = buildCaptureNotes(draft.description, draft.subtasks);
+
       await saveDeadlineRecord({
         title: draft.title,
         dueDate: draft.dueDate,
@@ -138,14 +133,16 @@ export const useCapture = ({ saveDeadlineRecord }: CaptureHookOptions) => {
         status: "Not Started",
         estimatedHours: draft.estimatedHours,
         category: draft.category,
-        notes: draft.notes,
+        description: draft.description,
+        subtasks: draft.subtasks,
+        notes,
         origin: "natural_language",
         aiMetadata: {
-          source: "gemini",
-          model: "gemini-2.5-flash",
+          source: draft.source,
+          model: draft.source === "mock" ? "offline-rules-v1" : "gemini-2.5-flash",
           confidence: draft.confidence,
           rawText: input.trim(),
-          promptVersion: CAPTURE_PROMPT_VERSION,
+          promptVersion: CAPTURE_EXTRACTION_VERSION,
           extractedAt: new Date().toISOString(),
         },
       });
@@ -153,10 +150,20 @@ export const useCapture = ({ saveDeadlineRecord }: CaptureHookOptions) => {
       setInput("");
       setDraft(null);
       setStatusMessage("Task captured and saved to Firestore.");
+      notify?.({
+        title: "Task saved",
+        description: "The edited extraction was written to Firestore.",
+        tone: "success",
+      });
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Could not save the capture.";
       setErrorMessage(message);
+      notify?.({
+        title: "Save failed",
+        description: message,
+        tone: "error",
+      });
     } finally {
       setSaving(false);
     }
