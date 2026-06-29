@@ -4,11 +4,16 @@ import { Dispatch, SetStateAction } from "react";
 
 import EmptyState from "@/components/dashboard/EmptyState";
 import DeadlineFilters from "@/components/dashboard/DeadlineFilters";
-import type { DeadlineFiltersState } from "@/hooks/useDeadlines";
+import type {
+  DeadlineFiltersState,
+  DeadlineFormState,
+} from "@/hooks/useDeadlines";
 import {
+  Priority,
   formatDaysRemaining,
   formatDueDate,
   getDaysRemaining,
+  Status,
 } from "@/lib/agent";
 import { Deadline } from "@/src/services/deadlines";
 
@@ -16,10 +21,17 @@ type Props = {
   deadlines: Deadline[];
   filters: DeadlineFiltersState;
   filteredDeadlines: Deadline[];
+  form: DeadlineFormState;
+  onCancelEditing: () => void;
   onDelete: (id: string) => void;
+  onSave: () => void;
   onStartEditing: (deadline: Deadline) => void;
   setFilters: Dispatch<SetStateAction<DeadlineFiltersState>>;
+  setForm: Dispatch<SetStateAction<DeadlineFormState>>;
 };
+
+const priorities: Priority[] = ["High", "Medium", "Low"];
+const statuses: Status[] = ["Not Started", "In Progress", "Completed"];
 
 const priorityClass = (priority: string) => {
   if (priority === "High") return "bg-red-600 text-white";
@@ -38,9 +50,13 @@ export default function DeadlineWorkspace({
   deadlines,
   filters,
   filteredDeadlines,
+  form,
+  onCancelEditing,
   onDelete,
+  onSave,
   onStartEditing,
   setFilters,
+  setForm,
 }: Props) {
   return (
     <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6">
@@ -53,6 +69,88 @@ export default function DeadlineWorkspace({
             Search, filter, edit, and delete deadlines. The deterministic planner
             reads from the same Firestore records.
           </p>
+        </div>
+      </div>
+
+      <div className="mt-6 rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h4 className="text-xl font-semibold text-white">
+            {form.editingId ? "Edit Deadline" : "Add Deadline"}
+          </h4>
+          {form.editingId ? (
+            <button
+              type="button"
+              onClick={onCancelEditing}
+              className="rounded border border-zinc-700 px-3 py-1 text-sm text-zinc-200 transition hover:border-zinc-500 focus:outline-none focus:ring-2 focus:ring-zinc-500"
+            >
+              Cancel
+            </button>
+          ) : null}
+        </div>
+
+        <div className="mt-4 grid gap-3 md:grid-cols-[1.4fr_0.9fr_0.8fr_0.9fr_auto]">
+          <input
+            type="text"
+            placeholder="Assignment title"
+            value={form.title}
+            onChange={(event) =>
+              setForm((current) => ({
+                ...current,
+                title: event.target.value,
+              }))
+            }
+            className="rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-white placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-purple-400"
+          />
+
+          <input
+            type="date"
+            value={form.dueDate}
+            onChange={(event) =>
+              setForm((current) => ({
+                ...current,
+                dueDate: event.target.value,
+              }))
+            }
+            className="rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+          />
+
+          <select
+            value={form.priority}
+            onChange={(event) =>
+              setForm((current) => ({
+                ...current,
+                priority: event.target.value as Priority,
+              }))
+            }
+            className="rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+          >
+            {priorities.map((priority) => (
+              <option key={priority}>{priority}</option>
+            ))}
+          </select>
+
+          <select
+            value={form.status}
+            onChange={(event) =>
+              setForm((current) => ({
+                ...current,
+                status: event.target.value as Status,
+              }))
+            }
+            className="rounded border border-zinc-700 bg-zinc-900 px-3 py-2 text-white focus:outline-none focus:ring-2 focus:ring-purple-400"
+          >
+            {statuses.map((status) => (
+              <option key={status}>{status}</option>
+            ))}
+          </select>
+
+          <button
+            type="button"
+            onClick={onSave}
+            className="rounded bg-green-600 px-4 py-2 font-semibold text-white transition hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-400"
+          >
+            Save
+          </button>
         </div>
       </div>
 

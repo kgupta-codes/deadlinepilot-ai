@@ -29,9 +29,13 @@ export default function Home() {
     deadlines,
     filters,
     filteredDeadlines,
+    form,
     removeDeadline,
+    resetForm,
+    saveDeadline,
     saveDeadlineRecord,
     setFilters,
+    setForm,
     startEditing,
   } = useDeadlines(user, toasts.pushToast);
   const calendar = useGoogleCalendar();
@@ -114,9 +118,13 @@ export default function Home() {
               deadlines={deadlines}
               filters={filters}
               filteredDeadlines={filteredDeadlines}
+              form={form}
+              onCancelEditing={resetForm}
               onDelete={removeDeadline}
+              onSave={saveDeadline}
               onStartEditing={startEditing}
               setFilters={setFilters}
+              setForm={setForm}
             />
           </SectionContainer>
 

@@ -7,12 +7,16 @@ import { auth } from "@/src/lib/firebase";
 import { logout, signInWithGoogle } from "@/src/services/auth";
 
 export const useAuth = () => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [user, setUser] = useState<User | null>(() => auth.currentUser);
+  const [loading, setLoading] = useState(true);
   const [authMessage, setAuthMessage] = useState("");
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, setUser);
+    const unsubscribe = onAuthStateChanged(auth, (nextUser) => {
+      setUser(nextUser);
+      setLoading(false);
+    });
+
     return () => unsubscribe();
   }, []);
 
@@ -22,7 +26,7 @@ export const useAuth = () => {
     try {
       setLoading(true);
       const loggedInUser = await signInWithGoogle();
-      setUser(loggedInUser);
+      setUser(auth.currentUser ?? loggedInUser);
       setAuthMessage("Signed in. Your deadline workspace is ready.");
     } catch (error) {
       console.error(error);

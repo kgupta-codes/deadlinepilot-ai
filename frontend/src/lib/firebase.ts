@@ -1,5 +1,10 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import {
+  browserLocalPersistence,
+  browserPopupRedirectResolver,
+  getAuth,
+  initializeAuth,
+} from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
@@ -11,9 +16,18 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+const existingApp = getApps().length > 0;
+const app = existingApp ? getApp() : initializeApp(firebaseConfig);
+const isBrowser = typeof window !== "undefined";
 
-export const auth = getAuth(app);
+export const auth = existingApp
+  ? getAuth(app)
+  : isBrowser
+    ? initializeAuth(app, {
+      persistence: browserLocalPersistence,
+      popupRedirectResolver: browserPopupRedirectResolver,
+    })
+    : getAuth(app);
 export const db = getFirestore(app);
 
 export default app;
