@@ -4,8 +4,9 @@ import { ArrowRight, FileText, Mic, ScanSearch, Sparkles, Upload } from "lucide-
 
 import CapturePreviewCard from "@/components/capture/CapturePreviewCard";
 import CaptureSourceTabs from "@/components/capture/CaptureSourceTabs";
+import Skeleton from "@/components/ui/Skeleton";
 import type { CaptureTaskDraft } from "@/hooks/useCapture";
-import type { CaptureMode } from "@/lib/ai/capture";
+import type { CaptureMode } from "@/src/services/ai";
 
 type Props = {
   activeMode: CaptureMode;
@@ -48,7 +49,7 @@ export default function CaptureWorkspace({
   statusMessage,
 }: Props) {
   return (
-    <div className="rounded-[28px] border border-zinc-800 bg-[linear-gradient(180deg,_rgba(9,9,11,0.98),_rgba(17,17,24,0.96))] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.22)]">
+    <div className="rounded-[28px] border border-zinc-800 bg-[linear-gradient(180deg,_rgba(9,9,11,0.98),_rgba(17,17,24,0.96))] p-4 shadow-[0_24px_80px_rgba(0,0,0,0.22)] sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-2">
           <div className="inline-flex items-center gap-2 rounded-full border border-violet-500/20 bg-violet-500/10 px-3 py-1 text-xs font-medium text-violet-100">
@@ -59,8 +60,9 @@ export default function CaptureWorkspace({
             Capture work in natural language
           </h3>
           <p className="max-w-2xl text-sm leading-6 text-zinc-400">
-            Describe the work the way you would say it to a project manager. Gemini
-            will convert it into a structured task for review before anything is saved.
+            Describe the work the way you would say it to a project manager. The
+            offline extractor converts it into a structured task for review before
+            anything is saved.
           </p>
         </div>
 
@@ -94,6 +96,7 @@ export default function CaptureWorkspace({
               onClick={onExtract}
               disabled={extracting || input.trim().length === 0}
               className="inline-flex items-center gap-2 rounded-2xl bg-violet-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-70"
+              aria-busy={extracting}
             >
               {extracting ? "Extracting..." : "Extract task"}
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
@@ -146,15 +149,35 @@ export default function CaptureWorkspace({
                 What happens next
               </p>
               <p className="mt-2 text-sm leading-6 text-zinc-300">
-                Gemini extracts structured fields, you review the preview, and only
-                then does DeadlinePilot write to Firestore.
+                The offline extractor returns structured fields, you review the
+                preview, and only then does DeadlinePilot write to Firestore.
               </p>
             </div>
           </div>
         </section>
 
         <section className="space-y-4">
-          {draft ? (
+          {extracting && !draft ? (
+            <div className="rounded-3xl border border-zinc-800 bg-zinc-950/60 p-5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="space-y-3">
+                  <Skeleton className="h-3 w-24" />
+                  <Skeleton className="h-6 w-56" />
+                </div>
+                <Skeleton className="h-8 w-28 rounded-full" />
+              </div>
+
+              <div className="mt-5 grid gap-4 lg:grid-cols-2">
+                <Skeleton className="h-20 w-full" />
+                <Skeleton className="h-20 w-full" />
+                <Skeleton className="h-20 w-full" />
+                <Skeleton className="h-20 w-full" />
+              </div>
+
+              <Skeleton className="mt-4 h-24 w-full" />
+              <Skeleton className="mt-5 h-12 w-40" />
+            </div>
+          ) : draft ? (
             <CapturePreviewCard
               draft={draft}
               onCancel={onCancelDraft}
@@ -164,7 +187,8 @@ export default function CaptureWorkspace({
             />
           ) : (
             <div className="rounded-3xl border border-dashed border-zinc-700 bg-zinc-950/40 p-6 text-sm leading-6 text-zinc-400">
-              Extract a task to see the editable preview before it is saved.
+              Extract a task to see the editable preview before it is saved. The
+              preview always stays editable before any Firestore write happens.
             </div>
           )}
 

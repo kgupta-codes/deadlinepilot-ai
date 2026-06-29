@@ -1,6 +1,6 @@
 "use client";
 
-import { CAPTURE_MODES, type CaptureMode } from "@/lib/ai/capture";
+import { CAPTURE_MODES, type CaptureMode } from "@/src/services/ai";
 
 type Props = {
   activeMode: CaptureMode;

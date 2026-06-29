@@ -3,10 +3,46 @@
 import { useState } from "react";
 
 import { AgentTask, generateLocalInsight } from "@/lib/agent";
+import { type CalendarEvent } from "@/lib/integrations/googleCalendar";
 
-export type AiSource = "gemini" | "local" | "idle";
+export type AiSource = "local" | "idle";
 
-export const useAI = (deadlines: AgentTask[]) => {
+type AnalyzeResponse = {
+  success?: boolean;
+  source?: AiSource;
+  coachMessage?: string;
+  motivation?: string;
+  todayMission?: string;
+  riskSummary?: string;
+  nextAction?: string;
+  decisionLog?: string[];
+  insight?: string;
+};
+
+const formatAnalyzeResponse = (data: AnalyzeResponse) => {
+  if (typeof data.coachMessage === "string") {
+    return [
+      data.coachMessage,
+      data.motivation ? `Motivation: ${data.motivation}` : null,
+      data.todayMission ? `Today Mission: ${data.todayMission}` : null,
+      data.riskSummary ? `Risk Summary: ${data.riskSummary}` : null,
+      data.nextAction ? `Next Action: ${data.nextAction}` : null,
+    ]
+      .filter((line): line is string => line !== null)
+      .join("\n\n");
+  }
+
+  if (typeof data.insight === "string") {
+    return data.insight;
+  }
+
+  return "";
+};
+
+export const useAI = (
+  deadlines: AgentTask[],
+  calendarEvents: CalendarEvent[] = []
+) => {
   const [aiInsight, setAiInsight] = useState("");
   const [aiSource, setAiSource] = useState<AiSource>("idle");
   const [aiLoading, setAiLoading] = useState(false);
@@ -22,18 +58,25 @@ export const useAI = (deadlines: AgentTask[]) => {
         },
         body: JSON.stringify({
           deadlines,
+          calendarEvents,
         }),
       });
 
       const data = await response.json();
+      const analysis = data as AnalyzeResponse;
 
-      if (data.success && data.insight) {
-        setAiInsight(data.insight);
-        setAiSource(data.source === "gemini" ? "gemini" : "local");
-      } else {
-        setAiInsight(generateLocalInsight(deadlines));
-        setAiSource("local");
+      if (analysis.success) {
+        const formattedInsight = formatAnalyzeResponse(analysis);
+
+        if (formattedInsight) {
+          setAiInsight(formattedInsight);
+          setAiSource("local");
+          return;
+        }
       }
+
+      setAiInsight(generateLocalInsight(deadlines));
+      setAiSource("local");
     } catch (error) {
       console.error(error);
       setAiInsight(generateLocalInsight(deadlines));

@@ -10,13 +10,18 @@ import {
   Sparkles,
 } from "lucide-react";
 
+import { useAI } from "@/hooks/useAI";
 import type { AgenticDayPlan } from "@/lib/agent";
+import { type AgentTask } from "@/lib/agent";
+import { type CalendarEvent } from "@/lib/integrations/googleCalendar";
 
 type Props = {
   user: User;
   greeting: string;
   planner: AgenticDayPlan;
   recommendation: string;
+  deadlines: AgentTask[];
+  calendarEvents: CalendarEvent[];
   loading: boolean;
 };
 
@@ -55,8 +60,14 @@ export default function AICommandCenter({
   greeting,
   planner,
   recommendation,
+  deadlines,
+  calendarEvents,
   loading,
 }: Props) {
+  const { aiInsight, aiLoading, aiSource, analyze } = useAI(
+    deadlines,
+    calendarEvents
+  );
   const missionTitle = planner.todaysMission.task?.title ?? "No mission selected";
   const missionReason = planner.todaysMission.reason;
   const confidence = `${planner.todaysMission.completionConfidence}%`;
@@ -84,8 +95,8 @@ export default function AICommandCenter({
 
           <p className="max-w-2xl text-sm leading-6 text-zinc-400 md:text-base">
             Planner intelligence is grounded in deadlines, calendar load, and current
-            work state. Gemini will be layered in later to explain decisions, not
-            replace them.
+            work state. The explanation layer stays separate so the planner keeps
+            working even when external AI is offline.
           </p>
         </div>
 
@@ -144,8 +155,8 @@ export default function AICommandCenter({
                 {recommendation}
               </p>
               <p className="mt-1 text-xs text-zinc-400">
-                Gemini will later explain this recommendation without changing the
-                planner decision.
+                The explanation layer can change later without touching the planner
+                decision.
               </p>
             </div>
           </div>
@@ -153,7 +164,7 @@ export default function AICommandCenter({
 
         <div className="space-y-4 rounded-3xl border border-zinc-800 bg-zinc-950/70 p-5">
           <div className="flex items-center justify-between gap-4">
-            <SectionTitle kicker="Actions" title="AI decisions ready for Gemini" />
+            <SectionTitle kicker="Actions" title="AI decisions ready for explanation" />
             <div className="inline-flex items-center gap-2 rounded-full border border-zinc-800 bg-zinc-900 px-3 py-1 text-xs text-zinc-400">
               Planner-first architecture
             </div>
@@ -232,7 +243,7 @@ export default function AICommandCenter({
             <button
               type="button"
               aria-disabled="true"
-              title="Enabled in a future Gemini milestone"
+              title="Enabled in a future provider-backed milestone"
               className="inline-flex items-center justify-center gap-2 rounded-2xl border border-violet-500/20 bg-violet-500/10 px-4 py-3 text-sm font-medium text-violet-100 transition hover:bg-violet-500/20 disabled:cursor-not-allowed disabled:opacity-60"
             >
               Accept Plan
@@ -240,15 +251,18 @@ export default function AICommandCenter({
             </button>
             <button
               type="button"
-              aria-disabled="true"
-              title="Enabled in a future Gemini milestone"
+              onClick={analyze}
+              disabled={aiLoading}
+              title="Explain the current planner decision"
+              aria-busy={aiLoading}
               className="rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm font-medium text-zinc-200 transition hover:border-violet-500/30 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Explain Decision
+              {aiLoading ? "Explaining..." : "Explain Decision"}
             </button>
             <button
               type="button"
-              disabled={loading}
+              onClick={analyze}
+              disabled={loading || aiLoading}
               className="inline-flex items-center justify-center gap-2 rounded-2xl border border-dashed border-zinc-700 px-4 py-3 text-sm font-medium text-zinc-300 transition hover:border-violet-500/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
             >
               Regenerate
@@ -256,10 +270,31 @@ export default function AICommandCenter({
             </button>
           </div>
 
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                Offline Coach
+              </p>
+              <p className="text-xs text-zinc-500">
+                {aiSource === "idle" ? "Waiting for analysis" : `Source: ${aiSource}`}
+              </p>
+            </div>
+
+            <div className="mt-3 space-y-3 text-sm leading-6 text-zinc-300">
+              {aiInsight ? (
+                <pre className="whitespace-pre-wrap font-sans">{aiInsight}</pre>
+              ) : (
+                <p>
+                  Press Explain Decision to generate a coach response from the
+                  planner snapshot.
+                </p>
+              )}
+            </div>
+          </div>
+
           <p className="text-xs leading-5 text-zinc-500">
-            Actions are intentionally non-destructive in this milestone. Gemini will
-            later supply explanations and regeneration logic without changing this
-            layout.
+            Actions are intentionally non-destructive. The explanation layer reads
+            the planner snapshot without changing the plan itself.
           </p>
         </div>
       </div>

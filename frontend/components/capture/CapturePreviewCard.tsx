@@ -1,5 +1,7 @@
 "use client";
 
+import { ListTodo } from "lucide-react";
+
 import type { CaptureTaskDraft } from "@/hooks/useCapture";
 import { Priority } from "@/lib/agent";
 
@@ -33,7 +35,7 @@ export default function CapturePreviewCard({
         </div>
 
         <div className="rounded-full border border-violet-500/20 bg-violet-500/10 px-3 py-1 text-xs font-medium text-violet-100">
-          Confidence {draft.confidence}%
+          {draft.source === "mock" ? "Offline parser" : "Provider"} {draft.confidence}%
         </div>
       </div>
 
@@ -110,18 +112,39 @@ export default function CapturePreviewCard({
             {draft.confidence}%
           </p>
           <p className="mt-2 text-xs leading-5 text-zinc-500">
-            Gemini extraction confidence. This is informational and not directly editable.
+            Confidence from the offline parser. This is informational and not directly editable.
           </p>
         </div>
       </div>
 
       <label className="mt-4 block">
-        <span className="text-sm text-zinc-400">Notes</span>
+        <span className="text-sm text-zinc-400">Description</span>
         <textarea
-          value={draft.notes}
-          onChange={(event) => onChange({ notes: event.target.value })}
+          value={draft.description}
+          onChange={(event) => onChange({ description: event.target.value })}
           rows={4}
           className="mt-2 w-full rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-white outline-none transition focus:border-violet-500"
+        />
+      </label>
+
+      <label className="mt-4 block">
+        <span className="flex items-center gap-2 text-sm text-zinc-400">
+          <ListTodo className="h-4 w-4" aria-hidden="true" />
+          Subtasks
+        </span>
+        <textarea
+          value={draft.subtasks.join("\n")}
+          onChange={(event) =>
+            onChange({
+              subtasks: event.target.value
+                .split("\n")
+                .map((subtask) => subtask.trim())
+                .filter(Boolean),
+            })
+          }
+          rows={5}
+          placeholder={"Review notes\nSolve questions\nFinal revision"}
+          className="mt-2 w-full rounded-2xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-white outline-none transition placeholder:text-zinc-500 focus:border-violet-500"
         />
       </label>
 

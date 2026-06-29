@@ -10,17 +10,21 @@ import SectionContainer from "@/components/dashboard/SectionContainer";
 import SettingsSection from "@/components/dashboard/SettingsSection";
 import Sidebar from "@/components/dashboard/Sidebar";
 import CaptureWorkspace from "@/components/capture/CaptureWorkspace";
+import ToastViewport from "@/components/ui/ToastViewport";
 import { useAuth } from "@/hooks/useAuth";
 import { useDashboard } from "@/hooks/useDashboard";
 import { useCapture } from "@/hooks/useCapture";
 import { useDeadlines } from "@/hooks/useDeadlines";
 import { useGoogleCalendar } from "@/hooks/useGoogleCalendar";
+import { useToasts } from "@/hooks/useToasts";
 import { useSidebar } from "@/hooks/useSidebar";
 
 export default function Home() {
   const { authMessage, loading, login, signOut, user } = useAuth();
+  const toasts = useToasts();
   const {
     deadlineMessage,
+    loading: deadlinesLoading,
     clearDeadlines,
     deadlines,
     filters,
@@ -29,11 +33,11 @@ export default function Home() {
     saveDeadlineRecord,
     setFilters,
     startEditing,
-  } = useDeadlines(user);
+  } = useDeadlines(user, toasts.pushToast);
   const calendar = useGoogleCalendar();
   const { activeSection, navigate, sections } = useSidebar(Boolean(user));
   const dashboard = useDashboard(deadlines, calendar.events);
-  const capture = useCapture({ saveDeadlineRecord });
+  const capture = useCapture({ notify: toasts.pushToast, saveDeadlineRecord });
   const actionMessage = deadlineMessage || authMessage;
 
   const handleLogout = async () => {
@@ -76,8 +80,10 @@ export default function Home() {
             ) : null}
 
             <DashboardGrid
+              deadlines={deadlines}
+              calendarEvents={calendar.events}
               greeting={greeting}
-              loading={calendar.loading}
+              loading={calendar.loading || deadlinesLoading}
               planner={dashboard.planner}
               recommendation={recommendation}
               user={user}
@@ -141,6 +147,7 @@ export default function Home() {
           </SectionContainer>
         </div>
       </div>
+      <ToastViewport onDismiss={toasts.dismissToast} toasts={toasts.toasts} />
     </main>
   );
 }

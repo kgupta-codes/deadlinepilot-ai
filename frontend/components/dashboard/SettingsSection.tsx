@@ -22,10 +22,10 @@ export default function SettingsSection({ onLogout, user }: Props) {
 
         <div className="rounded-xl border border-zinc-800 bg-zinc-950/50 p-4">
           <p className="text-sm text-gray-400">AI Mode</p>
-          <p className="mt-1 font-semibold">Gemini optional, local fallback on</p>
+          <p className="mt-1 font-semibold">Offline first, provider swappable</p>
           <p className="mt-2 text-sm text-gray-300">
-            The local agent still generates missions and recovery plans when the
-            API quota is unavailable.
+            The local planner and extractor still work when external providers are
+            unavailable.
           </p>
         </div>
 

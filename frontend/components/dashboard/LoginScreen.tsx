@@ -9,8 +9,8 @@ export default function LoginScreen({ loading, onLogin }: Props) {
       <div className="flex min-h-screen flex-col items-center justify-center px-6 text-center">
         <h1 className="mb-6 text-4xl font-bold">DeadlinePilot AI</h1>
         <p className="mb-8 max-w-md text-sm text-gray-300">
-          An AI productivity companion that stays useful even when Gemini quota
-          is unavailable.
+          An AI productivity companion that stays useful even when external AI
+          providers are offline.
         </p>
 
         <button

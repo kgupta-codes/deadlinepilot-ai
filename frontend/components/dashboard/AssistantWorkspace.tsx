@@ -33,8 +33,8 @@ export default function AssistantWorkspace({ dashboard }: Props) {
             Phase 2
           </p>
           <p className="mt-2 text-sm leading-6 text-zinc-300">
-            Gemini-backed assistant behavior will be wired in after the architecture
-            cleanup lands.
+            A provider-backed assistant can be wired in later without changing the
+            dashboard contract.
           </p>
         </div>
       </div>
