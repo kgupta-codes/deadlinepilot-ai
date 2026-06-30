@@ -5,7 +5,9 @@ import {
   getAuth,
   initializeAuth,
 } from "firebase/auth";
+import type { Auth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
+import type { Firestore } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -16,18 +18,47 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-const existingApp = getApps().length > 0;
-const app = existingApp ? getApp() : initializeApp(firebaseConfig);
 const isBrowser = typeof window !== "undefined";
 
-export const auth = existingApp
-  ? getAuth(app)
-  : isBrowser
-    ? initializeAuth(app, {
-      persistence: browserLocalPersistence,
-      popupRedirectResolver: browserPopupRedirectResolver,
-    })
-    : getAuth(app);
-export const db = getFirestore(app);
+const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+
+let auth: Auth | null = null;
+let db: Firestore | null = null;
+
+export const getFirebaseAuth = () => {
+  if (!isBrowser) {
+    throw new Error("Firebase Auth is only available in the browser.");
+  }
+
+  if (!auth) {
+    try {
+      auth = initializeAuth(app, {
+        persistence: browserLocalPersistence,
+        popupRedirectResolver: browserPopupRedirectResolver,
+      });
+    } catch (error) {
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "code" in error &&
+        error.code === "auth/already-initialized"
+      ) {
+        auth = getAuth(app);
+      } else {
+        throw error;
+      }
+    }
+  }
+
+  return auth;
+};
+
+export const getFirebaseDb = () => {
+  if (!db) {
+    db = getFirestore(app);
+  }
+
+  return db;
+};
 
 export default app;

@@ -15,7 +15,7 @@ import {
   getDaysRemaining,
   Status,
 } from "@/lib/agent";
-import { Deadline } from "@/src/services/deadlines";
+import type { Deadline } from "@/src/services/deadlines";
 
 type Props = {
   deadlines: Deadline[];

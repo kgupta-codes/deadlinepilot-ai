@@ -1,17 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { onAuthStateChanged, User } from "firebase/auth";
+import { onAuthStateChanged, type User } from "firebase/auth";
 
-import { auth } from "@/src/lib/firebase";
+import { getFirebaseAuth } from "@/src/lib/firebase";
 import { logout, signInWithGoogle } from "@/src/services/auth";
 
 export const useAuth = () => {
-  const [user, setUser] = useState<User | null>(() => auth.currentUser);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [authMessage, setAuthMessage] = useState("");
 
   useEffect(() => {
+    const auth = getFirebaseAuth();
     const unsubscribe = onAuthStateChanged(auth, (nextUser) => {
       setUser(nextUser);
       setLoading(false);
@@ -26,6 +27,7 @@ export const useAuth = () => {
     try {
       setLoading(true);
       const loggedInUser = await signInWithGoogle();
+      const auth = getFirebaseAuth();
       setUser(auth.currentUser ?? loggedInUser);
       setAuthMessage("Signed in. Your deadline workspace is ready.");
     } catch (error) {

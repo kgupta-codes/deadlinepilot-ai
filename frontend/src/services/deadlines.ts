@@ -18,7 +18,7 @@ import {
   sortByDueDate,
   Status,
 } from "@/lib/agent";
-import { db } from "@/src/lib/firebase";
+import { getFirebaseDb } from "@/src/lib/firebase";
 
 export type DeadlineOrigin =
   | "manual"
@@ -200,12 +200,15 @@ export const addDeadline = async (
   input: DeadlineWriteInput,
   userId: string
 ) => {
+  const db = getFirebaseDb();
+
   return await addDoc(collection(db, "deadlines"), {
     ...toDeadlineRecord(input, userId),
   });
 };
 
 export const getDeadlines = async (userId: string): Promise<Deadline[]> => {
+  const db = getFirebaseDb();
   const q = query(collection(db, "deadlines"), where("userId", "==", userId));
   const snapshot = await getDocs(q);
 
@@ -233,6 +236,7 @@ export const getDeadlines = async (userId: string): Promise<Deadline[]> => {
 };
 
 const assertDeadlineOwner = async (id: string, userId: string) => {
+  const db = getFirebaseDb();
   const reference = doc(db, "deadlines", id);
   const snapshot = await getDoc(reference);
 

@@ -1,15 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { User } from "firebase/auth";
+import type { User } from "firebase/auth";
 
 import { Priority, prioritizeTasks, Status } from "@/lib/agent";
 import {
   addDeadline,
   deleteDeadline,
-  Deadline,
+  type Deadline,
   getDeadlines,
-  DeadlineWriteInput,
+  type DeadlineWriteInput,
   updateDeadline,
 } from "@/src/services/deadlines";
 import type { ToastInput } from "@/hooks/useToasts";

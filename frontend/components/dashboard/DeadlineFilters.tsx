@@ -1,7 +1,7 @@
 import { Dispatch, SetStateAction } from "react";
 
 import { Priority, Status } from "@/lib/agent";
-import { DeadlineFiltersState } from "@/hooks/useDeadlines";
+import type { DeadlineFiltersState } from "@/hooks/useDeadlines";
 
 type Props = {
   filters: DeadlineFiltersState;
