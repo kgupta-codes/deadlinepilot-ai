@@ -6,17 +6,19 @@ import {
 import { estimateWorkload } from "./scheduleEngine";
 import { calculateRisk } from "./riskEngine";
 import {
-  AgentTask,
+  PlanningTask,
   PlannerMission,
   PlannerPostponement,
   PlannerPriorityScore,
   PlannerRecoveryPlan,
+  WorkloadAnalysis,
 } from "./types";
 import { PlannerConflict, PlannerStudySlot } from "./types";
 
 type PlanningContext = {
   conflicts: PlannerConflict[];
   studySlots: PlannerStudySlot[];
+  workloads: Map<string, WorkloadAnalysis>;
   now: Date;
 };
 
@@ -33,16 +35,17 @@ const scoreByDaysRemaining = (daysRemaining: number) => {
   return 0;
 };
 
-const countTaskConflicts = (task: AgentTask, conflicts: PlannerConflict[]) =>
+const countTaskConflicts = (task: PlanningTask, conflicts: PlannerConflict[]) =>
   conflicts.filter((conflict) => conflict.taskIds.includes(task.id)).length;
 
 export const scorePlannerTask = (
-  task: AgentTask,
+  task: PlanningTask,
   context: PlanningContext
 ): PlannerPriorityScore => {
   const daysRemaining = getDaysRemaining(task.dueDate, context.now);
-  const workloadHours = estimateWorkload(task);
-  const risk = calculateRisk(task, context.now);
+  const workload = context.workloads.get(task.id);
+  const workloadHours = workload?.remainingEffortHours ?? estimateWorkload(task);
+  const risk = calculateRisk(task, context.now, workload);
   const normalizedPriority = normalizePriority(task.priority);
   const statusPenalty =
     task.status === "In Progress" ? 4 : task.status === "Completed" ? 100 : 0;
@@ -60,22 +63,34 @@ export const scorePlannerTask = (
   const priorityBoost =
     normalizedPriority === "High" ? 15 : normalizedPriority === "Medium" ? 8 : 0;
   const workloadPenalty = Math.min(18, Math.round(workloadHours * 4));
+  const feasibilityBoost = workload
+    ? Math.round((1 - workload.completionFeasibility) * 22)
+    : 0;
+  const deficitBoost = workload
+    ? Math.min(18, Math.round(workload.capacityDeficitHours * 5))
+    : 0;
+  const importanceBoost = workload?.academicImportanceScore ?? 0;
+  const collisionBoost = workload?.workloadCollisionScore ?? 0;
   const riskBoost =
     risk.level === "Critical"
-      ? 12
+      ? 24
       : risk.level === "High"
-        ? 8
+        ? 16
         : risk.level === "Medium"
-          ? 4
+          ? 8
           : 0;
 
   const rawScore =
     100 +
     urgencyScore +
     priorityBoost +
+    importanceBoost +
+    feasibilityBoost +
+    deficitBoost +
+    collisionBoost +
     riskBoost -
     statusPenalty -
-    workloadPenalty -
+    Math.min(10, workloadPenalty) -
     calendarPenalty;
 
   return {
@@ -85,6 +100,16 @@ export const scorePlannerTask = (
       `Deadline proximity contributes ${urgencyScore} points.`,
       `Priority contributes ${priorityBoost} points for ${normalizedPriority.toLowerCase()} priority work.`,
       `Estimated workload is ${workloadHours}h.`,
+      workload
+        ? `${workload.availableCapacityHours}h available before deadline; ${workload.capacityDeficitHours}h capacity deficit.`
+        : "No workload analysis was available.",
+      workload
+        ? `Academic importance contributes ${importanceBoost} points.`
+        : "No academic importance score was available.",
+      workload && workload.collision.collisionLevel !== "none"
+        ?
+        `${workload.collision.competingEffortHours}h competing effort creates ${workload.collision.collisionLevel} collision pressure.`
+        : "No workload collision pressure was detected.",
       calendarConflictCount > 0
         ? `${calendarConflictCount} calendar conflict${calendarConflictCount === 1 ? "" : "s"} reduce available focus time.`
         : "No direct calendar conflict penalties were applied.",
@@ -94,6 +119,39 @@ export const scorePlannerTask = (
       `Risk level is ${risk.level}.`,
     ],
     workloadHours,
+    workload:
+      workload ??
+      ({
+        taskId: task.id,
+        requiredEffortHours: workloadHours,
+        remainingEffortHours: workloadHours,
+        availableCapacityHours: 0,
+        capacityDeficitHours: 0,
+        deadlineUrgency: daysRemaining <= 1 ? "urgent" : "later",
+        academicImportanceScore: 0,
+        workloadCollisionScore: 0,
+        completionFeasibility: 1,
+        effortKnown: false,
+        uncertaintyFlags: ["Workload analysis was unavailable."],
+        dailyCapacity: [],
+        collision: {
+          competingEffortHours: 0,
+          sharedCapacityHours: 0,
+          collisionRatio: 0,
+          collisionLevel: "none",
+          competingTaskIds: [],
+        },
+        overallRiskInputs: {
+          daysRemaining,
+          hoursUntilDeadline: daysRemaining * 24,
+          capacityDeficitHours: 0,
+          completionFeasibility: 1,
+          collisionLevel: "none",
+          effortKnown: false,
+          academicImportanceScore: 0,
+        },
+        recommendedNextAction: "Task is on track.",
+      } satisfies WorkloadAnalysis),
     daysRemaining,
     riskLevel: risk.level,
     conflictPenalty: calendarPenalty,
@@ -101,7 +159,7 @@ export const scorePlannerTask = (
 };
 
 export const buildPriorityRanking = (
-  tasks: AgentTask[],
+  tasks: PlanningTask[],
   context: PlanningContext
 ): PlannerPriorityScore[] => {
   return tasks
@@ -155,7 +213,9 @@ export const buildRecoveryPlan = (
     (total, item) => total + item.workloadHours,
     0
   );
-  const availableWorkHours = studySlots.reduce(
+  const availableWorkHours =
+  ranking[0]?.workload.availableCapacityHours ??
+  studySlots.reduce(
     (total, slot) => total + slot.durationMinutes,
     0
   ) / 60;

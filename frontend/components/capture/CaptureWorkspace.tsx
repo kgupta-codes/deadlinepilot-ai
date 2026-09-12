@@ -6,21 +6,23 @@ import CapturePreviewCard from "@/components/capture/CapturePreviewCard";
 import CaptureSourceTabs from "@/components/capture/CaptureSourceTabs";
 import Skeleton from "@/components/ui/Skeleton";
 import type { CaptureTaskDraft } from "@/hooks/useCapture";
+import { getCaptureDraftSaveBlockReason } from "@/lib/ai/captureReviewRules";
 import type { CaptureMode } from "@/src/services/ai";
 
 type Props = {
   activeMode: CaptureMode;
-  draft: CaptureTaskDraft | null;
+  drafts: CaptureTaskDraft[];
   errorMessage: string;
   extracting: boolean;
   input: string;
-  onCancelDraft: () => void;
-  onConfirmDraft: () => void;
+  onConfirmDraft: (id?: string) => void;
   onExtract: () => void;
   onInputChange: (value: string) => void;
   onModeChange: (mode: CaptureMode) => void;
+  onRemoveDraft: (id: string) => void;
   onReset: () => void;
-  onUpdateDraft: (patch: Partial<CaptureTaskDraft>) => void;
+  onToggleDraftSelection: (id: string) => void;
+  onUpdateDraft: (id: string, patch: Partial<CaptureTaskDraft>) => void;
   saving: boolean;
   statusMessage: string;
 };
@@ -34,20 +36,30 @@ const futureSources = [
 
 export default function CaptureWorkspace({
   activeMode,
-  draft,
+  drafts,
   errorMessage,
   extracting,
   input,
-  onCancelDraft,
   onConfirmDraft,
   onExtract,
   onInputChange,
   onModeChange,
+  onRemoveDraft,
   onReset,
+  onToggleDraftSelection,
   onUpdateDraft,
   saving,
   statusMessage,
 }: Props) {
+  const selectedCount = drafts.filter((draft) => draft.selected).length;
+  const selectedBlockReason = drafts
+    .filter((draft) => draft.selected)
+    .map((draft) => ({
+      title: draft.title,
+      reason: getCaptureDraftSaveBlockReason(draft),
+    }))
+    .find((item) => item.reason);
+
   return (
     <div className="rounded-[28px] border border-zinc-800 bg-[linear-gradient(180deg,_rgba(9,9,11,0.98),_rgba(17,17,24,0.96))] p-4 shadow-[0_24px_80px_rgba(0,0,0,0.22)] sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -61,8 +73,8 @@ export default function CaptureWorkspace({
           </h3>
           <p className="max-w-2xl text-sm leading-6 text-zinc-400">
             Describe the work the way you would say it to a project manager. The
-            offline extractor converts it into a structured task for review before
-            anything is saved.
+            capture API converts it into structured deadline drafts for review
+            before anything is saved.
           </p>
         </div>
 
@@ -149,16 +161,17 @@ export default function CaptureWorkspace({
                 What happens next
               </p>
               <p className="mt-2 text-sm leading-6 text-zinc-300">
-                The offline extractor returns structured fields, you review the
-                preview, and only then does DeadlinePilot write to Firestore.
+                Gemini returns structured fields when configured. If it is
+                unavailable, the server uses an offline fallback before you
+                review and save.
               </p>
             </div>
           </div>
         </section>
 
         <section className="space-y-4">
-          {extracting && !draft ? (
-            <div className="rounded-3xl border border-zinc-800 bg-zinc-950/60 p-5">
+              {extracting && drafts.length === 0 ? (
+                <div className="rounded-3xl border border-zinc-800 bg-zinc-950/60 p-5">
               <div className="flex items-center justify-between gap-3">
                 <div className="space-y-3">
                   <Skeleton className="h-3 w-24" />
@@ -177,17 +190,49 @@ export default function CaptureWorkspace({
               <Skeleton className="mt-4 h-24 w-full" />
               <Skeleton className="mt-5 h-12 w-40" />
             </div>
-          ) : draft ? (
-            <CapturePreviewCard
-              draft={draft}
-              onCancel={onCancelDraft}
-              onChange={onUpdateDraft}
-              onConfirm={onConfirmDraft}
-              saving={saving}
-            />
-          ) : (
-            <div className="rounded-3xl border border-dashed border-zinc-700 bg-zinc-950/40 p-6 text-sm leading-6 text-zinc-400">
-              Extract a task to see the editable preview before it is saved. The
+              ) : drafts.length > 0 ? (
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-zinc-800 bg-zinc-950/60 p-4">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                        Draft queue
+                      </p>
+                      <p className="mt-1 text-sm text-zinc-300">
+                        {selectedCount} selected / {drafts.length} extracted
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => onConfirmDraft()}
+                      disabled={
+                        saving || selectedCount === 0 || Boolean(selectedBlockReason)
+                      }
+                      className="rounded-2xl bg-violet-600 px-5 py-3 text-sm font-medium text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-70"
+                    >
+                      {saving ? "Saving..." : "Save Selected"}
+                    </button>
+                  </div>
+                  {selectedBlockReason?.reason ? (
+                    <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+                      {selectedBlockReason.title}: {selectedBlockReason.reason}
+                    </div>
+                  ) : null}
+
+                  {drafts.map((draft) => (
+                    <CapturePreviewCard
+                      key={draft.id}
+                      draft={draft}
+                      onChange={(patch) => onUpdateDraft(draft.id, patch)}
+                      onConfirm={() => onConfirmDraft(draft.id)}
+                      onRemove={() => onRemoveDraft(draft.id)}
+                      onToggleSelected={() => onToggleDraftSelection(draft.id)}
+                      saving={saving}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="rounded-3xl border border-dashed border-zinc-700 bg-zinc-950/40 p-6 text-sm leading-6 text-zinc-400">
+                  Extract a task to see the editable preview before it is saved. The
               preview always stays editable before any Firestore write happens.
             </div>
           )}

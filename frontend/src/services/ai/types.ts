@@ -19,7 +19,7 @@ export type ExtractedTask = {
   source: "mock" | "gemini";
 };
 
-export const CAPTURE_EXTRACTION_VERSION = "capture-offline-v1";
+export const CAPTURE_EXTRACTION_VERSION = "academic-deadline-extraction-v1";
 
 export const CAPTURE_MODES: Array<{
   id: CaptureMode;

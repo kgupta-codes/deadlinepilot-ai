@@ -1,0 +1,37 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function ownsExistingDeadline() {
+      return signedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    function ownsIncomingDeadline() {
+      return signedIn() && request.resource.data.userId == request.auth.uid;
+    }
+
+    match /deadlines/{deadlineId} {
+      allow read, delete: if ownsExistingDeadline();
+      allow create: if ownsIncomingDeadline();
+      allow update: if ownsExistingDeadline()
+        && ownsIncomingDeadline()
+        && request.resource.data.userId == resource.data.userId;
+    }
+
+    match /acceptedPlans/{planId} {
+      allow read, delete: if signedIn() && resource.data.userId == request.auth.uid;
+      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if signedIn()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == resource.data.userId;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

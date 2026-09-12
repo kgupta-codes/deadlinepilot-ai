@@ -1,250 +1,83 @@
-# 🚀 DeadlinePilot AI
+# Deadline Pilot AI
 
-> An AI-powered productivity companion that helps students and professionals stay ahead of deadlines instead of reacting to them.
+**Turn a messy student deadline into a realistic, reviewable plan before it becomes a crisis.**
 
-🌐 **Live Demo:** https://deadlinepilot-ai-1044071676251.asia-south1.run.app
+Deadline Pilot AI is a HackDays-ready student planning MVP. Gemini understands natural-language deadline descriptions; deterministic application engines validate dates and effort, assess risk and workload, and create the plan that the student can accept.
 
----
+## Problem and solution
 
-# 📖 Overview
+Students often know *what* is due but not the next actionable step. A vague note such as “Engineering Mechanics assignment due Monday, about five hours, not started” is hard to turn into a reliable schedule.
 
-Managing multiple assignments, projects, meetings, and deadlines is overwhelming. Traditional task managers only remind users after tasks are already planned.
+Deadline Pilot converts it into a reviewed deadline, calculates capacity and risk from real task and calendar data, distributes work into short sessions, and stores the accepted plan. It is intentionally not an AI chatbot that invents a schedule.
 
-**DeadlinePilot AI** acts as an intelligent productivity companion that:
-
-- Prioritizes deadlines
-- Uses AI to analyze tasks
-- Captures work from images and documents
-- Integrates with Google Calendar
-- Keeps productivity features available even when external AI services are unavailable
-
----
-
-# ✨ Features
-
-## 🔐 Google Authentication
-
-- Secure Firebase Authentication
-- One-click Google Sign In
-- Persistent user sessions
-
----
-
-## 📅 Smart Deadline Management
-
-- Create and organize deadlines
-- Track upcoming work
-- Priority-based task organization
-
----
-
-## 🤖 AI Task Analysis
-
-Powered by **Google Gemini**
-
-- Task summarization
-- Intelligent insights
-- AI-generated recommendations
-- Productivity assistance
-
----
-
-## 📷 Capture Hub
-
-Extract information from:
-
-- Images
-- Notes
-- Documents
-
-AI converts captured information into actionable tasks.
-
----
-
-## 📆 Google Calendar Integration
-
-- Connect Google Calendar
-- Sync events
-- View upcoming schedule
-- Stay organized across platforms
-
----
-
-## ⚡ Modern Dashboard
-
-- Responsive UI
-- Clean productivity-focused interface
-- Fast performance using Next.js
-
----
-
-# 🛠 Tech Stack
-
-## Frontend
-
-- Next.js 16
-- React 19
-- TypeScript
-- Tailwind CSS
-- Framer Motion
-
-## Backend / Services
-
-- Firebase Authentication
-- Cloud Firestore
-- Google Gemini API
-- Google Calendar API
-
-## Deployment
-
-- Google Cloud Run
-
----
-
-# 🏗 Architecture
-
-```
-                User
-                  │
-                  ▼
-         Next.js Frontend
-                  │
-      ┌───────────┼────────────┐
-      ▼           ▼            ▼
- Firebase      Gemini AI   Google Calendar
- Authentication    API          API
-      │
-      ▼
- Cloud Firestore
+```text
+Messy student input → Gemini extraction → schema/date validation → Firestore deadline
+→ deterministic risk + workload → deterministic sessions → accept → persisted plan
 ```
 
----
+## Gemini’s role
 
-# 🚀 Getting Started
+The server-only Gemini integration extracts structured academic deadlines, preserves evidence and uncertainty, and returns a confidence score. Responses are constrained to JSON, validated with Zod, normalized by deterministic date logic, and fall back to a local rules extractor when Gemini is unavailable. Gemini does not decide dates, risk scores, capacity, or sessions.
 
-## Clone the repository
+## Core MVP flow
 
-```bash
-git clone https://github.com/kgupta-codes/deadlinepilot-ai.git
-```
+1. Sign in with Firebase Auth.
+2. Capture natural language in the Capture workspace.
+3. Review and correct the editable extracted deadline; ambiguous or low-confidence data is blocked until reviewed.
+4. Save the deadline through authenticated API routes.
+5. Review workload, risk, and deterministic work sessions in the AI Command Center.
+6. Accept the feasible plan. The server validates task ownership and transactionally upserts that day’s accepted plan, preventing duplicate plans from repeated clicks.
 
-```bash
-cd deadlinepilot-ai/frontend
-```
+## Tech and architecture
 
-## Install dependencies
+- Next.js 16, TypeScript, React, Tailwind CSS
+- Firebase Auth and Firestore
+- Firebase Admin using Application Default Credentials on the server
+- Google Gemini API, server-side only
+- Pure TypeScript risk, workload, planner, recovery, and analytics engines
+- Google Calendar integration boundary for calendar-aware availability
 
-```bash
-npm install
-```
-
-## Create environment file
-
-Create:
-
-```
-.env.local
-```
-
-Add:
-
-```env
-NEXT_PUBLIC_FIREBASE_API_KEY=YOUR_KEY
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=YOUR_DOMAIN
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=YOUR_PROJECT
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=YOUR_BUCKET
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=YOUR_SENDER_ID
-NEXT_PUBLIC_FIREBASE_APP_ID=YOUR_APP_ID
-
-GEMINI_API_KEY=YOUR_GEMINI_KEY
-
-GOOGLE_CALENDAR_CLIENT_ID=YOUR_CLIENT_ID
-GOOGLE_CALENDAR_CLIENT_SECRET=YOUR_SECRET
-GOOGLE_CALENDAR_COOKIE_SECRET=YOUR_COOKIE_SECRET
-```
-
----
+Firestore client rules restrict deadline and accepted-plan documents to their owning authenticated user. API routes also verify Firebase ID tokens and validate all writes.
 
 ## Run locally
 
 ```bash
+cd frontend
 npm install
 npm run dev
 ```
 
-Open
+Create `frontend/.env.local` with public Firebase web configuration:
 
-```
-http://localhost:3000
-```
-
----
-
-# 📂 Project Structure
-
-```
-frontend/
-│
-├── app/
-├── components/
-├── hooks/
-├── lib/
-├── public/
-├── src/
-│
-├── package.json
-└── Dockerfile
+```text
+NEXT_PUBLIC_FIREBASE_API_KEY=
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
+NEXT_PUBLIC_FIREBASE_APP_ID=
 ```
 
----
+For authenticated server API routes, configure ADC (`gcloud auth application-default login`) and `FIREBASE_PROJECT_ID` (or the public project ID). To enable Gemini extraction, set server-only `GEMINI_API_KEY`. Calendar OAuth is optional; see [frontend/README.md](frontend/README.md).
 
-# ☁ Deployment
+Deploy Firestore rules with the Firebase CLI after reviewing `firestore.rules` for the target project.
 
-Deployed on **Google Cloud Run**
+## Verification
 
-Live URL:
+```bash
+cd frontend
+npx tsc --noEmit
+npm test
+npm run lint
+npm run build
+```
 
-https://deadlinepilot-ai-1044071676251.asia-south1.run.app
+## Demo script
 
----
+Capture: “I have my Engineering Mechanics assignment due Monday. I haven't started and it will take about 5 hours.” Review the extracted record, save it, then show the risk/capacity explanation and four short deterministic work sessions. Select **Accept Plan** to persist them.
 
-# 🎯 Problem Statement
+## Scope and limitations
 
-Students and professionals often struggle with:
-
-- Multiple deadlines
-- Missed assignments
-- Poor prioritization
-- Fragmented productivity tools
-
-DeadlinePilot AI combines AI assistance, task management, and calendar integration into one unified productivity platform.
-
----
-
-# 🔮 Future Improvements
-
-- AI deadline prediction
-- Email integration
-- Team collaboration
-- Notification system
-- Mobile application
-- Offline support
-- AI productivity analytics
-
----
-
-# 👨‍💻 Developer
-
-**Kunal Gupta**
-
-B.Tech Student  
-Jaypee University of Information Technology
-
-GitHub:
-https://github.com/kgupta-codes
-
----
-
-# 📄 License
-
-This project was developed as part of a hackathon submission.
+- Gemini and Firebase persistence require the configured external services; extraction safely falls back to local rules when Gemini is unavailable.
+- Calendar connection remains optional and depends on configured Google OAuth credentials.
+- The MVP persists accepted sessions as a plan snapshot. Creating native Google Calendar events is an explicit next integration step.

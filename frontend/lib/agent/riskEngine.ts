@@ -1,9 +1,10 @@
 import { getDaysRemaining, isPending, normalizePriority } from "./helpers";
-import { AgentTask, RiskLevel } from "./types";
+import { AgentTask, RiskLevel, WorkloadAnalysis } from "./types";
 
 export const calculateRisk = (
   task: AgentTask,
-  now = new Date()
+  now = new Date(),
+  workload?: WorkloadAnalysis
 ): { level: RiskLevel; reason: string } => {
   if (!isPending(task)) {
     return {
@@ -20,6 +21,56 @@ export const calculateRisk = (
       level: "Critical",
       reason: "This task is overdue and blocks schedule recovery.",
     };
+  }
+
+  if (workload) {
+    const inputs = workload.overallRiskInputs;
+
+    if (
+      workload.capacityDeficitHours >= 2 &&
+      (inputs.daysRemaining <= 1 || workload.completionFeasibility < 0.35)
+    ) {
+      return {
+        level: "Critical",
+        reason:
+          "Required effort exceeds available capacity with too little time remaining.",
+      };
+    }
+
+    if (
+      workload.capacityDeficitHours > 0 ||
+      workload.completionFeasibility < 0.75
+    ) {
+      return {
+        level: "High",
+        reason:
+          "Available study capacity is below the remaining work required.",
+      };
+    }
+
+    if (
+      (workload.collision.collisionLevel === "high" ||
+        workload.collision.collisionLevel === "critical") &&
+      daysRemaining <= 3
+    ) {
+      return {
+        level: "High",
+        reason:
+          "Several nearby deadlines compete for the same limited study capacity.",
+      };
+    }
+
+    if (
+      !workload.effortKnown ||
+      workload.collision.collisionLevel === "medium" ||
+      workload.deadlineUrgency === "soon"
+    ) {
+      return {
+        level: "Medium",
+        reason:
+          "The task needs planned progress because effort, timing, or nearby workload is uncertain.",
+      };
+    }
   }
 
   if (daysRemaining <= 1 && priority === "High") {

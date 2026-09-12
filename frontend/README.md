@@ -8,7 +8,7 @@ DeadlinePilot AI is an AI productivity companion for the Google AI Hackathon. It
 Next.js App Router
   app/page.tsx
     hooks/useAuth.ts          -> Firebase Auth session
-    hooks/useDeadlines.ts     -> Firestore CRUD, form state, filters
+    hooks/useDeadlines.ts     -> authenticated deadline API calls, form state, filters
     hooks/useAI.ts            -> Gemini request with local fallback
     hooks/useSidebar.ts       -> section navigation and active state
     hooks/useDashboard.ts     -> memoized agent-derived dashboard data
@@ -18,11 +18,13 @@ Next.js App Router
   lib/agent/*                 -> pure TypeScript planning engine
   lib/integrations/google.ts  -> Google integration registry
   lib/integrations/googleCalendar.ts -> Google Calendar auth and event service
-  src/services/deadlines.ts   -> typed Firestore persistence
-  app/api/analyze/route.ts    -> optional Gemini analysis endpoint
+  src/services/deadlines.ts   -> typed deadline API client
+  app/api/capture/route.ts    -> authenticated natural-language extraction endpoint
+  app/api/deadlines/*         -> authenticated Firestore persistence endpoints
+  app/api/analyze/route.ts    -> local agent analysis endpoint
 ```
 
-`app/page.tsx` composes the product shell only. Business rules live in `lib/agent`, data access lives in `src/services`, and UI state lives in hooks.
+`app/page.tsx` composes the product shell only. Business rules live in `lib/agent`, API clients live in `src/services`, server-side persistence lives in `app/api` and `lib/server`, and UI state lives in hooks.
 
 ## Folder Structure
 
@@ -52,21 +54,26 @@ All agent modules are pure TypeScript and contain no React or Firebase dependenc
 
 ```text
 Firebase Auth -> useAuth -> page.tsx
-Firestore -> src/services/deadlines.ts -> useDeadlines -> useDashboard
+Firestore -> app/api/deadlines -> src/services/deadlines.ts -> useDeadlines -> useDashboard
 useDashboard -> lib/agent engines -> dashboard components
-Analyze button -> useAI -> /api/analyze -> Gemini or local fallback
+Capture -> useCapture -> /api/capture -> Gemini extraction or offline fallback -> review -> /api/deadlines
+Analyze button -> useAI -> /api/analyze -> local agent plan
 Sidebar clicks -> useSidebar -> anchored dashboard sections
 ```
 
-## Local AI Fallback
+## Capture Extraction
 
-Gemini is optional. `/api/analyze` normalizes the incoming deadline payload, uses Gemini only when `GEMINI_API_KEY` is configured, and returns `generateLocalInsight()` when Gemini is unavailable or fails. The dashboard itself never depends on Gemini because Mission Control, Recovery Plan, Today’s Plan, Calendar, and AI Coach all receive local agent output from `lib/agent`.
+`/api/capture` is authenticated and currently accepts natural-language input only. It uses Gemini structured JSON extraction when `GEMINI_API_KEY` is configured on the server. Gemini output is parsed and validated against the academic extraction Zod schema before the UI receives drafts.
+
+If Gemini is unavailable or validation fails, the server falls back to the offline rules extractor. Drafts must be reviewed before saving. Missing dates, unresolved date ambiguity, unresolved extraction ambiguity, and unreviewed low-confidence drafts are blocked before they can be written through `/api/deadlines`.
+
+PDF, screenshot, Gmail, and voice capture are visible as disabled future sources only; they are not implemented in this milestone.
 
 ## Google Technology Readiness
 
 - Firebase Authentication: active
-- Firestore: active with typed models and owner checks in the client service
-- Gemini API: optional server-side integration with local fallback
+- Firestore: active through authenticated API routes with server-side owner checks
+- Gemini API: optional server-side capture extraction with offline fallback
 - Google Calendar: configured integration boundary with OAuth-backed session handling
 - Google OAuth: delegated access path for Calendar integration
 - Cloud Run: planned deployment target
@@ -77,22 +84,32 @@ Gemini is optional. `/api/analyze` normalizes the incoming deadline payload, use
 
 1. Install dependencies with `npm install`.
 2. Add Firebase public environment variables in `.env.local`.
-3. Optionally add `GEMINI_API_KEY` for Gemini analysis.
+   - `NEXT_PUBLIC_FIREBASE_API_KEY`
+   - `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN`
+   - `NEXT_PUBLIC_FIREBASE_PROJECT_ID`
+   - `NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET`
+   - `NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID`
+   - `NEXT_PUBLIC_FIREBASE_APP_ID`
+3. Add Firebase Admin server environment variables for authenticated API routes:
+   - `FIREBASE_PROJECT_ID`
+   - `FIREBASE_CLIENT_EMAIL`
+   - `FIREBASE_PRIVATE_KEY`
+4. Optionally add server-only `GEMINI_API_KEY` for Gemini capture extraction.
 4. Add Google Calendar environment variables if you want Calendar sync:
    - `GOOGLE_CALENDAR_CLIENT_ID`
    - `GOOGLE_CALENDAR_CLIENT_SECRET`
    - `GOOGLE_CALENDAR_COOKIE_SECRET`
-4. Run `npm run dev`.
+5. Run `npm run dev`.
 
 ## Verification
 
 - `npm run lint`
 - `npx tsc --noEmit`
+- `npm test`
 - `npm run build`
 
 ## Remaining Production Hardening
 
-- Add Firestore security rules for owner-scoped reads and writes.
 - Add indexed Firestore ordering and pagination for larger datasets.
 - Add Google Calendar API sync scopes and consent screen values in Google Cloud.
 - Add deployment configuration for Cloud Run or Firebase Hosting.

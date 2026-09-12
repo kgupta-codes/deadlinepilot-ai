@@ -1,16 +1,8 @@
 import {
-  addDoc,
-  collection,
-  deleteDoc,
-  doc,
-  getDoc,
-  getDocs,
-  query,
-  serverTimestamp,
-  updateDoc,
-  where,
-} from "firebase/firestore";
-
+  type AcademicType,
+  type DateAmbiguity,
+  type SubmissionMode,
+} from "@/lib/ai/extractionSchema";
 import {
   normalizePriority,
   normalizeStatus,
@@ -18,7 +10,9 @@ import {
   sortByDueDate,
   Status,
 } from "@/lib/agent";
-import { getFirebaseDb } from "@/src/lib/firebase";
+import { getFirebaseAuth } from "@/src/lib/firebase";
+
+const TOKEN_REFRESH_WINDOW_MS = 2 * 60 * 1000;
 
 export type DeadlineOrigin =
   | "manual"
@@ -37,6 +31,11 @@ export type DeadlineAiMetadata = {
   rawText: string | null;
   promptVersion: string | null;
   extractedAt: string | null;
+  schemaVersion?: string | null;
+  fallbackReason?: string | null;
+  validationWarnings?: string[];
+  dateAmbiguity?: DateAmbiguity;
+  reviewResolved?: boolean;
 };
 
 export type Deadline = {
@@ -46,7 +45,14 @@ export type Deadline = {
   priority: Priority;
   status: Status;
   userId: string;
+  dueTime: string | null;
+  timezone: string | null;
   estimatedHours: number | null;
+  academicType: AcademicType;
+  courseCode: string | null;
+  courseName: string | null;
+  weightPercent: number | null;
+  submissionMode: SubmissionMode;
   category: string;
   description: string;
   subtasks: string[];
@@ -56,12 +62,20 @@ export type Deadline = {
 };
 
 type DeadlineDocument = {
+  id?: unknown;
   title?: unknown;
   dueDate?: unknown;
   priority?: unknown;
   status?: unknown;
   userId?: unknown;
+  dueTime?: unknown;
+  timezone?: unknown;
   estimatedHours?: unknown;
+  academicType?: unknown;
+  courseCode?: unknown;
+  courseName?: unknown;
+  weightPercent?: unknown;
+  submissionMode?: unknown;
   category?: unknown;
   description?: unknown;
   subtasks?: unknown;
@@ -75,7 +89,14 @@ export type DeadlineWriteInput = {
   dueDate: string;
   priority: Priority;
   status: Status;
+  dueTime?: string | null;
+  timezone?: string | null;
   estimatedHours?: number | null;
+  academicType?: AcademicType;
+  courseCode?: string | null;
+  courseName?: string | null;
+  weightPercent?: number | null;
+  submissionMode?: SubmissionMode;
   category?: string;
   description?: string;
   subtasks?: string[];
@@ -93,6 +114,49 @@ const normalizeEstimatedHours = (value: unknown) => {
   }
 
   return null;
+};
+
+const normalizePercent = (value: unknown) => {
+  if (
+    typeof value === "number" &&
+    Number.isFinite(value) &&
+    value >= 0 &&
+    value <= 100
+  ) {
+    return value;
+  }
+
+  return null;
+};
+
+const normalizeAcademicType = (value: unknown): AcademicType => {
+  if (
+    value === "assignment" ||
+    value === "exam" ||
+    value === "quiz" ||
+    value === "project" ||
+    value === "presentation" ||
+    value === "lab" ||
+    value === "reading" ||
+    value === "admin"
+  ) {
+    return value;
+  }
+
+  return "other";
+};
+
+const normalizeSubmissionMode = (value: unknown): SubmissionMode => {
+  if (
+    value === "online" ||
+    value === "in_person" ||
+    value === "email" ||
+    value === "lms"
+  ) {
+    return value;
+  }
+
+  return "unknown";
 };
 
 const normalizeStringArray = (value: unknown) => {
@@ -158,114 +222,191 @@ const normalizeAiMetadata = (value: unknown): DeadlineAiMetadata | null => {
     rawText: normalizeString(candidate.rawText),
     promptVersion: normalizeString(candidate.promptVersion),
     extractedAt: normalizeString(candidate.extractedAt),
+    schemaVersion: normalizeString(candidate.schemaVersion),
+    fallbackReason: normalizeString(candidate.fallbackReason),
+    validationWarnings: normalizeStringArray(candidate.validationWarnings),
+    dateAmbiguity:
+      candidate.dateAmbiguity === "missing_year" ||
+      candidate.dateAmbiguity === "relative_date" ||
+      candidate.dateAmbiguity === "multiple_possible_dates" ||
+      candidate.dateAmbiguity === "unclear"
+        ? candidate.dateAmbiguity
+        : "none",
+    reviewResolved: candidate.reviewResolved === true,
   };
 };
 
-const toDeadlineRecord = (
-  input: DeadlineWriteInput,
-  userId: string
-) => ({
-  title: input.title,
-  dueDate: input.dueDate,
-  userId,
-  priority: input.priority,
-  status: input.status,
-  estimatedHours: input.estimatedHours ?? null,
-  category: input.category ?? "",
-  description: input.description ?? "",
-  subtasks: input.subtasks ?? [],
-  notes: input.notes ?? "",
-  origin: input.origin ?? "manual",
-  aiMetadata: input.aiMetadata ?? null,
-  createdAt: serverTimestamp(),
-  updatedAt: serverTimestamp(),
-});
+const shouldRefreshToken = async (forceRefresh: boolean) => {
+  if (forceRefresh) {
+    return true;
+  }
 
-const toDeadlineUpdateRecord = (input: DeadlineWriteInput) => ({
-  title: input.title,
-  dueDate: input.dueDate,
-  priority: input.priority,
-  status: input.status,
-  estimatedHours: input.estimatedHours ?? null,
-  category: input.category ?? "",
-  description: input.description ?? "",
-  subtasks: input.subtasks ?? [],
-  notes: input.notes ?? "",
-  origin: input.origin ?? "manual",
-  aiMetadata: input.aiMetadata ?? null,
-  updatedAt: serverTimestamp(),
-});
+  const user = getFirebaseAuth().currentUser;
 
-export const addDeadline = async (
-  input: DeadlineWriteInput,
-  userId: string
+  if (!user) {
+    throw new Error("Authentication is required.");
+  }
+
+  const tokenResult = await user.getIdTokenResult();
+  const expiresAt = new Date(tokenResult.expirationTime).getTime();
+
+  return expiresAt - Date.now() <= TOKEN_REFRESH_WINDOW_MS;
+};
+
+const getAuthHeaders = async (forceRefresh = false) => {
+  const user = getFirebaseAuth().currentUser;
+
+  if (!user) {
+    throw new Error("Authentication is required.");
+  }
+
+  return {
+    Authorization: `Bearer ${await user.getIdToken(
+      await shouldRefreshToken(forceRefresh)
+    )}`,
+    "Content-Type": "application/json",
+  };
+};
+
+export const authenticatedDeadlineFetch = async (
+  input: RequestInfo | URL,
+  init: RequestInit = {}
 ) => {
-  const db = getFirebaseDb();
+  const headers = new Headers(init.headers);
+  const authHeaders = await getAuthHeaders();
 
-  return await addDoc(collection(db, "deadlines"), {
-    ...toDeadlineRecord(input, userId),
+  Object.entries(authHeaders).forEach(([key, value]) => {
+    headers.set(key, value);
+  });
+
+  const response = await fetch(input, {
+    ...init,
+    headers,
+  });
+
+  if (response.status !== 401) {
+    return response;
+  }
+
+  const refreshedHeaders = new Headers(init.headers);
+  const refreshedAuthHeaders = await getAuthHeaders(true);
+
+  Object.entries(refreshedAuthHeaders).forEach(([key, value]) => {
+    refreshedHeaders.set(key, value);
+  });
+
+  return fetch(input, {
+    ...init,
+    headers: refreshedHeaders,
   });
 };
 
-export const getDeadlines = async (userId: string): Promise<Deadline[]> => {
-  const db = getFirebaseDb();
-  const q = query(collection(db, "deadlines"), where("userId", "==", userId));
-  const snapshot = await getDocs(q);
+const parseApiError = async (response: Response) => {
+  const data = (await response.json().catch(() => null)) as
+    | { message?: unknown }
+    | null;
 
-  const deadlines: Deadline[] = snapshot.docs.map((item) => {
-    const data = item.data() as DeadlineDocument;
+  return typeof data?.message === "string"
+    ? data.message
+    : "Deadline request failed.";
+};
 
-    return {
-      id: item.id,
-      title: typeof data.title === "string" ? data.title : "",
-      dueDate: typeof data.dueDate === "string" ? data.dueDate : "",
-      priority: normalizePriority(data.priority),
-      status: normalizeStatus(data.status),
-      userId: typeof data.userId === "string" ? data.userId : userId,
-      estimatedHours: normalizeEstimatedHours(data.estimatedHours),
-      category: normalizeString(data.category),
-      description: normalizeString(data.description),
-      subtasks: normalizeStringArray(data.subtasks),
-      notes: normalizeString(data.notes),
-      origin: normalizeOrigin(data.origin),
-      aiMetadata: normalizeAiMetadata(data.aiMetadata),
-    };
+const toDeadline = (id: string, data: DeadlineDocument, fallbackUserId = ""): Deadline => ({
+  id,
+  title: typeof data.title === "string" ? data.title : "",
+  dueDate: typeof data.dueDate === "string" ? data.dueDate : "",
+  priority: normalizePriority(data.priority),
+  status: normalizeStatus(data.status),
+  userId: typeof data.userId === "string" ? data.userId : fallbackUserId,
+  dueTime: normalizeString(data.dueTime) || null,
+  timezone: normalizeString(data.timezone) || null,
+  estimatedHours: normalizeEstimatedHours(data.estimatedHours),
+  academicType: normalizeAcademicType(data.academicType),
+  courseCode: normalizeString(data.courseCode) || null,
+  courseName: normalizeString(data.courseName) || null,
+  weightPercent: normalizePercent(data.weightPercent),
+  submissionMode: normalizeSubmissionMode(data.submissionMode),
+  category: normalizeString(data.category),
+  description: normalizeString(data.description),
+  subtasks: normalizeStringArray(data.subtasks),
+  notes: normalizeString(data.notes),
+  origin: normalizeOrigin(data.origin),
+  aiMetadata: normalizeAiMetadata(data.aiMetadata),
+});
+
+export const addDeadline = async (input: DeadlineWriteInput) => {
+  const response = await authenticatedDeadlineFetch("/api/deadlines", {
+    method: "POST",
+    body: JSON.stringify(input),
   });
+
+  if (!response.ok) {
+    throw new Error(await parseApiError(response));
+  }
+
+  const data = (await response.json()) as { deadline?: DeadlineDocument };
+
+  if (!data.deadline || typeof data.deadline.id !== "string") {
+    throw new Error("Deadline API returned an invalid response.");
+  }
+
+  return toDeadline(data.deadline.id, data.deadline);
+};
+
+export const getDeadlines = async (): Promise<Deadline[]> => {
+  const response = await authenticatedDeadlineFetch("/api/deadlines", {
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseApiError(response));
+  }
+
+  const data = (await response.json()) as { deadlines?: DeadlineDocument[] };
+
+  if (!Array.isArray(data.deadlines)) {
+    throw new Error("Deadline API returned an invalid response.");
+  }
+
+  const deadlines = data.deadlines.map((deadline) =>
+    toDeadline(
+      typeof deadline.id === "string" ? deadline.id : "",
+      deadline,
+      getFirebaseAuth().currentUser?.uid
+    )
+  );
 
   return sortByDueDate(deadlines);
 };
 
-const assertDeadlineOwner = async (id: string, userId: string) => {
-  const db = getFirebaseDb();
-  const reference = doc(db, "deadlines", id);
-  const snapshot = await getDoc(reference);
-
-  if (!snapshot.exists()) {
-    throw new Error("Deadline not found.");
-  }
-
-  const data = snapshot.data() as DeadlineDocument;
-
-  if (data.userId !== userId) {
-    throw new Error("Deadline does not belong to the current user.");
-  }
-
-  return reference;
-};
-
-export const deleteDeadline = async (id: string, userId: string) => {
-  const reference = await assertDeadlineOwner(id, userId);
-  await deleteDoc(reference);
-};
-
 export const updateDeadline = async (
   id: string,
-  userId: string,
   input: DeadlineWriteInput
 ) => {
-  const reference = await assertDeadlineOwner(id, userId);
-
-  await updateDoc(reference, {
-    ...toDeadlineUpdateRecord(input),
+  const response = await authenticatedDeadlineFetch(`/api/deadlines/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify(input),
   });
+
+  if (!response.ok) {
+    throw new Error(await parseApiError(response));
+  }
+
+  const data = (await response.json()) as { deadline?: DeadlineDocument };
+
+  if (!data.deadline || typeof data.deadline.id !== "string") {
+    throw new Error("Deadline API returned an invalid response.");
+  }
+
+  return toDeadline(data.deadline.id, data.deadline);
+};
+
+export const deleteDeadline = async (id: string) => {
+  const response = await authenticatedDeadlineFetch(`/api/deadlines/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    throw new Error(await parseApiError(response));
+  }
 };

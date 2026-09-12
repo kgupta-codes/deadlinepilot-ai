@@ -1,1 +1,1 @@
-export { extractTask } from "./mock";
+export {};

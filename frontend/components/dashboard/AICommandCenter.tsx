@@ -2,8 +2,8 @@
 
 import type { User } from "firebase/auth";
 import {
+  AlertTriangle,
   CalendarClock,
-  ChevronRight,
   ListChecks,
   ShieldAlert,
   TimerReset,
@@ -13,6 +13,7 @@ import {
 import { useAI } from "@/hooks/useAI";
 import type { AgenticDayPlan } from "@/lib/agent";
 import { type AgentTask } from "@/lib/agent";
+import { getRankedWorkloadPresentations } from "@/lib/agent/workloadPresentation";
 import { type CalendarEvent } from "@/lib/integrations/googleCalendar";
 
 type Props = {
@@ -23,6 +24,9 @@ type Props = {
   deadlines: AgentTask[];
   calendarEvents: CalendarEvent[];
   loading: boolean;
+  onAcceptPlan: () => void;
+  acceptingPlan: boolean;
+  planStatus: string;
 };
 
 const Stat = ({
@@ -55,6 +59,14 @@ const SectionTitle = ({
   </div>
 );
 
+const riskClass = (riskLevel: string) => {
+  if (riskLevel === "Critical") return "border-red-500/40 bg-red-500/10 text-red-100";
+  if (riskLevel === "High") return "border-orange-500/40 bg-orange-500/10 text-orange-100";
+  if (riskLevel === "Medium") return "border-yellow-500/40 bg-yellow-500/10 text-yellow-100";
+  if (riskLevel === "Completed") return "border-green-500/40 bg-green-500/10 text-green-100";
+  return "border-blue-500/40 bg-blue-500/10 text-blue-100";
+};
+
 export default function AICommandCenter({
   user,
   greeting,
@@ -63,6 +75,9 @@ export default function AICommandCenter({
   deadlines,
   calendarEvents,
   loading,
+  onAcceptPlan,
+  acceptingPlan,
+  planStatus,
 }: Props) {
   const { aiInsight, aiLoading, aiSource, analyze } = useAI(
     deadlines,
@@ -73,7 +88,9 @@ export default function AICommandCenter({
   const confidence = `${planner.todaysMission.completionConfidence}%`;
   const availableHours = `${planner.recoveryPlan.availableWorkHours.toFixed(1)}h`;
   const nextFocusBlock = planner.studySlots[0];
-  const topPriorities = planner.priorityRanking.slice(0, 3);
+  const rankedWorkloads = getRankedWorkloadPresentations(planner.priorityRanking);
+  const topWorkload = rankedWorkloads[0] ?? null;
+  const topPriorities = rankedWorkloads.slice(0, 4);
   const calendarOverview = `${planner.studySlots.length} study slot${
     planner.studySlots.length === 1 ? "" : "s"
   } · ${planner.conflicts.length} conflict${
@@ -120,15 +137,91 @@ export default function AICommandCenter({
       <div className="mt-6 grid gap-4 lg:grid-cols-[1.3fr_0.9fr]">
         <div className="space-y-4 rounded-3xl border border-zinc-800 bg-zinc-950/70 p-5">
           <div className="flex items-start justify-between gap-4">
-            <SectionTitle kicker="Mission" title="Why the planner chose this" />
-            <div className="rounded-full border border-violet-500/20 bg-violet-500/10 px-3 py-1 text-xs font-medium text-violet-100">
-              Completion confidence {confidence}
-            </div>
+            <SectionTitle kicker="Next best action" title={missionTitle} />
+            {topWorkload ? (
+              <div
+                aria-label={`Top task risk ${topWorkload.riskLabel}`}
+                className={`rounded-full border px-3 py-1 text-xs font-semibold ${riskClass(
+                  topWorkload.riskLevel
+                )}`}
+              >
+                {topWorkload.riskLabel} RISK
+              </div>
+            ) : (
+              <div className="rounded-full border border-zinc-700 bg-zinc-900 px-3 py-1 text-xs font-medium text-zinc-300">
+                No active risk
+              </div>
+            )}
           </div>
 
-          <p className="mt-4 text-sm leading-7 text-zinc-300">
-            {missionReason}
-          </p>
+          {topWorkload ? (
+            <div className="space-y-4">
+              <p className="text-sm text-zinc-400">{topWorkload.dueLabel}</p>
+
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4">
+                  <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                    Work left
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-white">
+                    {topWorkload.capacity.remaining}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4">
+                  <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                    Capacity
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-white">
+                    {topWorkload.capacity.available}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4">
+                  <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                    Feasibility
+                  </p>
+                  <p className="mt-2 text-sm font-semibold text-white">
+                    {topWorkload.feasibilityLabel}
+                  </p>
+                  <p
+                    className={`mt-1 text-xs ${
+                      topWorkload.capacity.showDeficit
+                        ? "text-orange-200"
+                        : "text-zinc-400"
+                    }`}
+                  >
+                    {topWorkload.capacity.deficit}
+                  </p>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                  Why this is #1
+                </p>
+                <ul className="mt-3 space-y-2 text-sm leading-6 text-zinc-300">
+                  {topWorkload.reasons.slice(0, 5).map((reason) => (
+                    <li key={reason} className="flex gap-2">
+                      <span aria-hidden="true" className="mt-2 h-1.5 w-1.5 rounded-full bg-violet-300" />
+                      <span>{reason}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="rounded-2xl border border-violet-500/20 bg-violet-500/10 p-4">
+                <p className="text-xs uppercase tracking-[0.18em] text-violet-200">
+                  Next action
+                </p>
+                <p className="mt-2 text-sm font-semibold text-white">
+                  {topWorkload.recommendedNextAction}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <p className="mt-4 text-sm leading-7 text-zinc-300">
+              {missionReason}
+            </p>
+          )}
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4">
@@ -149,16 +242,47 @@ export default function AICommandCenter({
 
             <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4">
               <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
-                AI recommendation
+                Completion confidence
               </p>
               <p className="mt-2 text-sm font-medium text-white">
-                {recommendation}
+                {confidence}
               </p>
               <p className="mt-1 text-xs text-zinc-400">
-                The explanation layer can change later without touching the planner
-                decision.
+                {recommendation}
               </p>
             </div>
+          </div>
+
+          <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+                  Recommended plan
+                </p>
+                <p className="mt-1 text-sm font-medium text-white">
+                  {planner.recommendedSessions.length} deterministic work session{planner.recommendedSessions.length === 1 ? "" : "s"}
+                </p>
+              </div>
+              <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${planner.planFeasible ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-100" : "border-red-500/30 bg-red-500/10 text-red-100"}`}>
+                {planner.planFeasible ? "READY TO ACCEPT" : "CAPACITY CONFLICT"}
+              </span>
+            </div>
+            {planner.recommendedSessions.length > 0 ? (
+              <ul className="mt-3 space-y-1 text-xs text-zinc-400">
+                {planner.recommendedSessions.slice(0, 4).map((session) => (
+                  <li key={session.id}>{session.date} · {session.hours}h · {session.title}</li>
+                ))}
+              </ul>
+            ) : null}
+            <button
+              type="button"
+              onClick={onAcceptPlan}
+              disabled={acceptingPlan || !planner.planFeasible || planner.recommendedSessions.length === 0}
+              className="mt-4 rounded-2xl bg-violet-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {acceptingPlan ? "Saving plan..." : "Accept Plan"}
+            </button>
+            {planStatus ? <p role="status" className="mt-2 text-xs text-zinc-400">{planStatus}</p> : null}
           </div>
         </div>
 
@@ -210,25 +334,49 @@ export default function AICommandCenter({
             {topPriorities.length > 0 ? (
               topPriorities.map((item, index) => (
                 <div
-                  key={item.task.id}
-                  className="flex items-start justify-between gap-4 rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4"
+                  key={item.taskId}
+                  className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4"
                 >
-                  <div className="min-w-0">
-                    <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">
-                      Priority {index + 1}
-                    </p>
-                    <p className="truncate text-sm font-medium text-white">
-                      {item.task.title}
-                    </p>
-                    <p className="mt-1 text-xs text-zinc-400">
-                      {item.reasons[0]}
-                    </p>
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-zinc-500">
+                        Priority {index + 1}
+                      </p>
+                      <p className="truncate text-sm font-medium text-white">
+                        {item.title}
+                      </p>
+                      <p className="mt-1 text-xs text-zinc-400">
+                        {item.dueLabel}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-lg font-semibold text-violet-200">
+                        {item.plannerScore}
+                      </p>
+                      <p className="text-xs text-zinc-500">planner score</p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-lg font-semibold text-violet-200">
-                      {item.score}
-                    </p>
-                    <p className="text-xs text-zinc-500">planner score</p>
+
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                    <span
+                      aria-label={`Planner risk ${item.riskLabel}`}
+                      className={`rounded-full border px-3 py-1 font-semibold ${riskClass(
+                        item.riskLevel
+                      )}`}
+                    >
+                      Risk: {item.riskLabel}
+                    </span>
+                    <span className="rounded-full border border-zinc-700 bg-zinc-950/60 px-3 py-1 text-zinc-300">
+                      {item.capacity.remaining}
+                    </span>
+                    <span className="rounded-full border border-zinc-700 bg-zinc-950/60 px-3 py-1 text-zinc-300">
+                      {item.capacity.summary}
+                    </span>
+                  </div>
+
+                  <div className="mt-3 flex gap-2 text-xs leading-5 text-zinc-400">
+                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-500" aria-hidden="true" />
+                    <span>{item.reasons[0]}</span>
                   </div>
                 </div>
               ))
@@ -239,16 +387,7 @@ export default function AICommandCenter({
             )}
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-3">
-            <button
-              type="button"
-              aria-disabled="true"
-              title="Enabled in a future provider-backed milestone"
-              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-violet-500/20 bg-violet-500/10 px-4 py-3 text-sm font-medium text-violet-100 transition hover:bg-violet-500/20 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              Accept Plan
-              <ChevronRight className="h-4 w-4" aria-hidden="true" />
-            </button>
+          <div className="grid gap-3 sm:grid-cols-2">
             <button
               type="button"
               onClick={analyze}

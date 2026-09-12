@@ -9,12 +9,14 @@ import type {
   DeadlineFormState,
 } from "@/hooks/useDeadlines";
 import {
+  AgenticDayPlan,
   Priority,
   formatDaysRemaining,
   formatDueDate,
   getDaysRemaining,
   Status,
 } from "@/lib/agent";
+import { getDeadlineRiskPresentation } from "@/lib/agent/workloadPresentation";
 import type { Deadline } from "@/src/services/deadlines";
 
 type Props = {
@@ -26,6 +28,7 @@ type Props = {
   onDelete: (id: string) => void;
   onSave: () => void;
   onStartEditing: (deadline: Deadline) => void;
+  planner: AgenticDayPlan;
   setFilters: Dispatch<SetStateAction<DeadlineFiltersState>>;
   setForm: Dispatch<SetStateAction<DeadlineFormState>>;
 };
@@ -46,6 +49,14 @@ const urgencyClass = (daysLeft: number, status: string) => {
   return "text-blue-300";
 };
 
+const riskClass = (riskLevel: string) => {
+  if (riskLevel === "Critical") return "border-red-500/40 bg-red-500/10 text-red-100";
+  if (riskLevel === "High") return "border-orange-500/40 bg-orange-500/10 text-orange-100";
+  if (riskLevel === "Medium") return "border-yellow-500/40 bg-yellow-500/10 text-yellow-100";
+  if (riskLevel === "Completed") return "border-green-500/40 bg-green-500/10 text-green-100";
+  return "border-blue-500/40 bg-blue-500/10 text-blue-100";
+};
+
 export default function DeadlineWorkspace({
   deadlines,
   filters,
@@ -55,6 +66,7 @@ export default function DeadlineWorkspace({
   onDelete,
   onSave,
   onStartEditing,
+  planner,
   setFilters,
   setForm,
 }: Props) {
@@ -172,6 +184,11 @@ export default function DeadlineWorkspace({
           ) : (
             filteredDeadlines.map((deadline) => {
               const daysLeft = getDaysRemaining(deadline.dueDate);
+              const workloadRisk = getDeadlineRiskPresentation(
+                planner.priorityRanking,
+                deadline.id,
+                deadline.status
+              );
 
               return (
                 <div
@@ -200,6 +217,17 @@ export default function DeadlineWorkspace({
                       {deadline.status}
                     </span>
 
+                    {workloadRisk ? (
+                      <span
+                        aria-label={`Planner risk ${workloadRisk.riskLabel}`}
+                        className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold ${riskClass(
+                          workloadRisk.riskLevel
+                        )}`}
+                      >
+                        Risk: {workloadRisk.riskLabel}
+                      </span>
+                    ) : null}
+
                     <span
                       className={`text-sm font-semibold ${urgencyClass(
                         daysLeft,
@@ -210,6 +238,12 @@ export default function DeadlineWorkspace({
                         ? "Completed"
                         : formatDaysRemaining(daysLeft)}
                     </span>
+
+                    {workloadRisk ? (
+                      <span className="text-xs text-zinc-400">
+                        {workloadRisk.capacitySummary}
+                      </span>
+                    ) : null}
                   </div>
 
                   <div className="mt-3 flex flex-wrap gap-2 text-xs">

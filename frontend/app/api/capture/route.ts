@@ -1,57 +1,59 @@
 import { NextResponse } from "next/server";
+import { z } from "zod";
 
-import { extractTask } from "@/src/services/ai";
+import { extractAcademicDeadlines } from "@/lib/ai/captureExtraction";
+import { errorResponse } from "@/lib/server/apiResponses";
+import { requireFirebaseUser } from "@/lib/server/auth";
+import { CAPTURE_MODES } from "@/src/services/ai";
 
-type CaptureRequestBody = {
-  input?: unknown;
-};
+export const runtime = "nodejs";
 
-const parseCaptureRequest = (body: unknown): string | null => {
-  if (!body || typeof body !== "object") {
-    return null;
-  }
-
-  const candidate = body as CaptureRequestBody;
-
-  if (typeof candidate.input !== "string" || candidate.input.trim().length === 0) {
-    return null;
-  }
-
-  return candidate.input.trim();
-};
+const captureRequestSchema = z
+  .object({
+    input: z.string().trim().min(1).max(20_000),
+    mode: z.literal("natural_language").default("natural_language"),
+    timezone: z.string().trim().max(80).nullable().optional(),
+    now: z.string().datetime().optional(),
+  })
+  .strict();
 
 export async function POST(request: Request) {
   try {
+    await requireFirebaseUser(request);
     const body = await request.json().catch(() => null);
-    const input = parseCaptureRequest(body);
+    const input = captureRequestSchema.parse(body);
+    const mode = CAPTURE_MODES.find((item) => item.id === input.mode);
 
-    if (!input) {
+    if (!mode?.enabled) {
       return NextResponse.json(
         {
           success: false,
-          message: "Provide a natural-language task description to extract.",
+          message: "That capture mode is not supported yet.",
         },
         { status: 400 }
       );
     }
 
-    const extraction = extractTask(input);
+    const now = input.now ? new Date(input.now) : new Date();
 
-    return NextResponse.json({
-      success: true,
-      source: extraction.source,
-      extraction,
+    if (Number.isNaN(now.getTime())) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Invalid current time context.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const result = await extractAcademicDeadlines({
+      input: input.input,
+      timezone: input.timezone ?? null,
+      now,
     });
-  } catch (error) {
-    console.error("Capture Error:", error);
 
-    return NextResponse.json(
-      {
-        success: false,
-        message: error instanceof Error ? error.message : "Unknown error",
-        error,
-      },
-      { status: 500 }
-    );
+    return NextResponse.json(result);
+  } catch (error) {
+    return errorResponse(error);
   }
 }

@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+
 import AnalyticsWorkspace from "@/components/dashboard/AnalyticsWorkspace";
 import AssistantWorkspace from "@/components/dashboard/AssistantWorkspace";
 import CalendarSection from "@/components/dashboard/CalendarSection";
@@ -18,8 +20,11 @@ import { useDeadlines } from "@/hooks/useDeadlines";
 import { useGoogleCalendar } from "@/hooks/useGoogleCalendar";
 import { useToasts } from "@/hooks/useToasts";
 import { useSidebar } from "@/hooks/useSidebar";
+import { acceptPlan } from "@/src/services/plans";
 
 export default function Home() {
+  const [acceptingPlan, setAcceptingPlan] = useState(false);
+  const [planStatus, setPlanStatus] = useState("");
   const { authMessage, loading, login, signOut, user } = useAuth();
   const toasts = useToasts();
   const {
@@ -47,6 +52,30 @@ export default function Home() {
   const handleLogout = async () => {
     clearDeadlines();
     await signOut();
+  };
+
+  const handleAcceptPlan = async () => {
+    if (!dashboard.planner.planFeasible || dashboard.planner.recommendedSessions.length === 0) {
+      setPlanStatus("Resolve the capacity conflict before accepting this plan.");
+      return;
+    }
+
+    setAcceptingPlan(true);
+    setPlanStatus("");
+    try {
+      await acceptPlan({
+        planKey: new Date().toISOString().slice(0, 10),
+        sessions: dashboard.planner.recommendedSessions,
+      });
+      setPlanStatus("Plan accepted and saved. Repeating this action safely updates today’s plan.");
+      toasts.pushToast({ title: "Plan accepted", description: "Your recommended sessions are saved.", tone: "success" });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Could not save the recommended plan.";
+      setPlanStatus(message);
+      toasts.pushToast({ title: "Plan save failed", description: message, tone: "error" });
+    } finally {
+      setAcceptingPlan(false);
+    }
   };
 
   if (!user) {
@@ -91,22 +120,26 @@ export default function Home() {
               planner={dashboard.planner}
               recommendation={recommendation}
               user={user}
+              onAcceptPlan={handleAcceptPlan}
+              acceptingPlan={acceptingPlan}
+              planStatus={planStatus}
             />
           </SectionContainer>
 
           <SectionContainer id="capture">
             <CaptureWorkspace
               activeMode={capture.mode}
-              draft={capture.draft}
+              drafts={capture.drafts}
               errorMessage={capture.errorMessage}
               extracting={capture.extracting}
               input={capture.input}
-              onCancelDraft={capture.cancelDraft}
               onConfirmDraft={capture.confirmSave}
               onExtract={capture.extract}
               onInputChange={capture.setInput}
               onModeChange={capture.setMode}
+              onRemoveDraft={capture.removeDraft}
               onReset={capture.resetCapture}
+              onToggleDraftSelection={capture.toggleDraftSelection}
               onUpdateDraft={capture.updateDraft}
               saving={capture.saving}
               statusMessage={capture.statusMessage}
@@ -123,6 +156,7 @@ export default function Home() {
               onDelete={removeDeadline}
               onSave={saveDeadline}
               onStartEditing={startEditing}
+              planner={dashboard.planner}
               setFilters={setFilters}
               setForm={setForm}
             />

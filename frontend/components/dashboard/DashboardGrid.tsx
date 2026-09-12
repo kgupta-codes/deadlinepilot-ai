@@ -13,6 +13,9 @@ type Props = {
   deadlines: AgentTask[];
   calendarEvents: CalendarEvent[];
   loading: boolean;
+  onAcceptPlan: () => void;
+  acceptingPlan: boolean;
+  planStatus: string;
 };
 
 export default function DashboardGrid({
@@ -23,6 +26,9 @@ export default function DashboardGrid({
   deadlines,
   calendarEvents,
   loading,
+  onAcceptPlan,
+  acceptingPlan,
+  planStatus,
 }: Props) {
   return (
     <div className="space-y-6">
@@ -34,6 +40,9 @@ export default function DashboardGrid({
         planner={planner}
         recommendation={recommendation}
         loading={loading}
+        onAcceptPlan={onAcceptPlan}
+        acceptingPlan={acceptingPlan}
+        planStatus={planStatus}
       />
     </div>
   );

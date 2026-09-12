@@ -33,6 +33,10 @@ export type DeadlineFiltersState = {
 
 type NotifyToast = (toast: ToastInput) => void;
 
+export type DeadlineSaveResult =
+  | { success: true }
+  | { success: false; message: string };
+
 export const useDeadlines = (user: User | null, notify?: NotifyToast) => {
   const [deadlines, setDeadlines] = useState<Deadline[]>([]);
   const [deadlineMessage, setDeadlineMessage] = useState("");
@@ -60,11 +64,11 @@ export const useDeadlines = (user: User | null, notify?: NotifyToast) => {
     });
   };
 
-  const refreshDeadlines = async (userId: string) => {
+  const refreshDeadlines = async () => {
     setLoading(true);
 
     try {
-      const updated = await getDeadlines(userId);
+      const updated = await getDeadlines();
       setDeadlines(updated);
     } finally {
       setLoading(false);
@@ -78,7 +82,7 @@ export const useDeadlines = (user: User | null, notify?: NotifyToast) => {
 
     let cancelled = false;
 
-    getDeadlines(user.uid)
+    getDeadlines()
       .then((updated) => {
         if (!cancelled) {
           setDeadlines(updated);
@@ -105,15 +109,17 @@ export const useDeadlines = (user: User | null, notify?: NotifyToast) => {
   const saveDeadlineRecord = async (
     input: DeadlineWriteInput,
     deadlineId: string | null = null
-  ) => {
+  ): Promise<DeadlineSaveResult> => {
     if (!user) {
-      setDeadlineMessage("Sign in before saving deadlines.");
-      return;
+      const message = "Sign in before saving deadlines.";
+      setDeadlineMessage(message);
+      return { success: false, message };
     }
 
     if (!input.title || !input.dueDate) {
-      setDeadlineMessage("Add a title and due date before saving.");
-      return;
+      const message = "Add a title and due date before saving.";
+      setDeadlineMessage(message);
+      return { success: false, message };
     }
 
     const snapshot = deadlines;
@@ -124,7 +130,14 @@ export const useDeadlines = (user: User | null, notify?: NotifyToast) => {
       priority: input.priority,
       status: input.status,
       userId: user.uid,
+      dueTime: input.dueTime ?? null,
+      timezone: input.timezone ?? null,
       estimatedHours: input.estimatedHours ?? null,
+      academicType: input.academicType ?? "other",
+      courseCode: input.courseCode ?? null,
+      courseName: input.courseName ?? null,
+      weightPercent: input.weightPercent ?? null,
+      submissionMode: input.submissionMode ?? "unknown",
       category: input.category ?? "",
       description: input.description ?? "",
       subtasks: input.subtasks ?? [],
@@ -145,29 +158,33 @@ export const useDeadlines = (user: User | null, notify?: NotifyToast) => {
       }
 
       if (deadlineId) {
-        await updateDeadline(deadlineId, user.uid, input);
+        await updateDeadline(deadlineId, input);
         setDeadlineMessage("Deadline updated.");
       } else {
-        await addDeadline(input, user.uid);
+        await addDeadline(input);
         setDeadlineMessage("Deadline saved to Firestore.");
       }
 
-      await refreshDeadlines(user.uid);
+      await refreshDeadlines();
       resetForm();
       notify?.({
         title: deadlineId ? "Deadline updated" : "Deadline saved",
         description: input.title,
         tone: "success",
       });
+      return { success: true };
     } catch (error) {
       console.error(error);
       setDeadlines(snapshot);
-      setDeadlineMessage("Could not save the deadline. Try again.");
+      const message =
+        error instanceof Error ? error.message : "Could not save the deadline. Try again.";
+      setDeadlineMessage(message);
       notify?.({
         title: "Save failed",
-        description: "The deadline could not be written to Firestore.",
+        description: message,
         tone: "error",
       });
+      return { success: false, message };
     }
   };
 
@@ -186,7 +203,14 @@ export const useDeadlines = (user: User | null, notify?: NotifyToast) => {
       dueDate: form.dueDate,
       priority: form.priority,
       status: form.status,
+      dueTime: existing?.dueTime ?? null,
+      timezone: existing?.timezone ?? null,
       estimatedHours: existing?.estimatedHours ?? null,
+      academicType: existing?.academicType ?? "other",
+      courseCode: existing?.courseCode ?? null,
+      courseName: existing?.courseName ?? null,
+      weightPercent: existing?.weightPercent ?? null,
+      submissionMode: existing?.submissionMode ?? "unknown",
       category: existing?.category ?? "",
       description: existing?.description ?? "",
       subtasks: existing?.subtasks ?? [],
@@ -205,8 +229,8 @@ export const useDeadlines = (user: User | null, notify?: NotifyToast) => {
 
     try {
       setDeadlines((current) => current.filter((deadline) => deadline.id !== id));
-      await deleteDeadline(id, user.uid);
-      await refreshDeadlines(user.uid);
+      await deleteDeadline(id);
+      await refreshDeadlines();
       setDeadlineMessage("Deadline deleted.");
       notify?.({
         title: "Deadline deleted",
