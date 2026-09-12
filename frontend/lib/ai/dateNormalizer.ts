@@ -149,6 +149,29 @@ const parseExplicitDateText = (
       : { dueDate: null, ambiguity: "unclear", issue: "Date is not valid." };
   }
 
+  const dayMonthName = text.match(
+    /\b(\d{1,2})\s+(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t|tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?(?:,?\s+(\d{4}))?\b/i
+  );
+  if (dayMonthName) {
+    const day = Number(dayMonthName[1]);
+    const month = MONTHS[dayMonthName[2].toLowerCase().replace(".", "")];
+    const year = dayMonthName[3]
+      ? Number(dayMonthName[3])
+      : reference.getUTCFullYear();
+    const candidate = `${year}-${pad(month)}-${pad(day)}`;
+
+    return isValidIsoDate(candidate)
+      ? {
+          dueDate: candidate,
+          ambiguity: dayMonthName[3] ? "none" : "missing_year",
+        }
+      : {
+          dueDate: null,
+          ambiguity: "unclear",
+          issue: "Date is not valid.",
+        };
+  }
+
   const monthName = text.match(
     /\b(jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t|tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\.?\s+(\d{1,2})(?:,?\s+(\d{4}))?\b/i
   );
