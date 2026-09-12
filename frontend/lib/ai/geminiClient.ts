@@ -17,7 +17,7 @@ import {
 } from "./extractionSchema";
 
 const MODEL_NAME = "gemini-3.6-flash";
-const TIMEOUT_MS = 10_000;
+const TIMEOUT_MS = 20_000;
 
 const enumString = (values: string[]): Schema => ({
   type: SchemaType.STRING,
