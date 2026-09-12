@@ -282,9 +282,8 @@ export const normalizeExtractedDeadlineDate = (
 ): ExtractedAcademicDeadline => {
   const normalized = normalizeDueDateText(deadline.dueDateText, now, timezone);
   const hasConfirmedDueDate =
-    deadline.dueDate !== null &&
-    isValidIsoDate(deadline.dueDate) &&
-    deadline.dateAmbiguity === "none";
+  deadline.dueDate !== null &&
+  isValidIsoDate(deadline.dueDate);
   const dueDate = hasConfirmedDueDate ? deadline.dueDate : normalized.dueDate;
   const dueTime =
     deadline.dueTime && isValidTime(deadline.dueTime)
@@ -292,10 +291,7 @@ export const normalizeExtractedDeadlineDate = (
       : deadline.dueDateText
         ? parseTimeText(deadline.dueDateText)
         : null;
-  const dateAmbiguity =
-    dueDate && deadline.dateAmbiguity === "none"
-      ? "none"
-      : normalized.dateAmbiguity;
+  const dateAmbiguity = dueDate ? "none" : normalized.dateAmbiguity;
   const ambiguities = [
     ...deadline.ambiguities,
     ...(hasConfirmedDueDate ? [] : [normalized.ambiguity]),
